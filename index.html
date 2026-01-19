@@ -442,21 +442,21 @@
 
     <script>
         const MOLECULES = {
-            'H2O': { name: 'VODA', formula: 'H₂O', description: 'Nejdůležitější látka pro život! Kyslík má 2 jednoduché vazby na vodíky.', points: 15, icon: '💧' },
-            'O2': { name: 'KYSLÍK', formula: 'O₂', description: 'Molekula, kterou dýcháme. Dva atomy kyslíku spojené dvojnou vazbou.', points: 10, icon: '💨' },
-            'CO2': { name: 'OXID UHLIČITÝ', formula: 'CO₂', description: 'Skleníkový plyn. Uhlík má dvojné vazby na oba kyslíky (O=C=O).', points: 20, icon: '🌫️' },
-            'CH4': { name: 'METHAN', formula: 'CH₄', description: 'Zemní plyn! Uhlík ve středu má 4 jednoduché vazby na vodíky.', points: 25, icon: '🔥' },
-            'NH3': { name: 'AMONIAK', formula: 'NH₃', description: 'Štiplavý plyn. Dusík má 3 jednoduché vazby na vodíky.', points: 20, icon: '☁️' },
-            'HCl': { name: 'CHLOROVODÍK', formula: 'HCl', description: 'Kyselina chlorovodíková v plynné formě. H-Cl jednoduchá vazba.', points: 10, icon: '⚗️' },
-            'N2': { name: 'DUSÍK', formula: 'N₂', description: 'Hlavní složka vzduchu (78%). Trojná vazba N≡N.', points: 15, icon: '💨' },
-            'H2': { name: 'VODÍK', formula: 'H₂', description: 'Nejlehčí prvek. Dvě jednoduchými vazbami spojené H atomy.', points: 10, icon: '💨' },
-            'C2H6': { name: 'ETHAN', formula: 'C₂H₆', description: 'Uhlovodík. Dva uhlíky jednoduchá vazba, každý má 3 vodíky.', points: 30, icon: '⛽' },
-            'C2H4': { name: 'ETHYLEN', formula: 'C₂H₄', description: 'Nenasycený uhlovodík. Dvojná vazba C=C, každý má 2 vodíky.', points: 30, icon: '🧪' },
-            'C2H2': { name: 'ACETYLEN', formula: 'C₂H₂', description: 'Svařovací plyn. Trojná vazba C≡C, každý má 1 vodík.', points: 35, icon: '🔧' },
-            'H2S': { name: 'SIROVODÍK', formula: 'H₂S', description: 'Plyn s vůní zkažených vajec. Síra má 2 vodíky.', points: 15, icon: '💨' },
-            'SO2': { name: 'OXID SIŘIČITÝ', formula: 'SO₂', description: 'Znečišťující plyn. Síra má 2 kyslíky dvojnými vazbami.', points: 20, icon: '🌫️' },
-            'NaCl': { name: 'CHLORID SODNÝ', formula: 'NaCl', description: 'Kuchyňská sůl! Na-Cl jednoduchá vazba.', points: 10, icon: '🧂' },
-            'CCl4': { name: 'TETRACHLORMETHAN', formula: 'CCl₄', description: 'Rozpouštědlo. Uhlík má 4 chlóry okolo.', points: 25, icon: '🧪' },
+            'H2O': { name: 'VODA', formula: 'H₂O', description: 'Nejdůležitější látka pro život! Kyslík má 2 jednoduché vazby na vodíky.', points: 15, icon: '💧', structure: { 'O': [['H', 1], ['H', 1]] } },
+            'O2': { name: 'KYSLÍK', formula: 'O₂', description: 'Molekula, kterou dýcháme. Dva atomy kyslíku spojené dvojnou vazbou.', points: 15, icon: '💨', structure: { 'O': [['O', 2]] } },
+            'CO2': { name: 'OXID UHLIČITÝ', formula: 'CO₂', description: 'Skleníkový plyn. Uhlík má dvojné vazby na oba kyslíky (O=C=O).', points: 30, icon: '🌫️', structure: { 'C': [['O', 2], ['O', 2]] } },
+            'CH4': { name: 'METHAN', formula: 'CH₄', description: 'Zemní plyn! Uhlík ve středu má 4 jednoduché vazby na vodíky.', points: 35, icon: '🔥', structure: { 'C': [['H', 1], ['H', 1], ['H', 1], ['H', 1]] } },
+            'NH3': { name: 'AMONIAK', formula: 'NH₃', description: 'Štiplavý plyn. Dusík má 3 jednoduché vazby na vodíky.', points: 30, icon: '☁️', structure: { 'N': [['H', 1], ['H', 1], ['H', 1]] } },
+            'HCl': { name: 'CHLOROVODÍK', formula: 'HCl', description: 'Kyselina chlorovodíková v plynné formě. H-Cl jednoduchá vazba.', points: 10, icon: '⚗️', structure: { 'H': [['Cl', 1]] } },
+            'N2': { name: 'DUSÍK', formula: 'N₂', description: 'Hlavní složka vzduchu (78%). Trojná vazba N≡N.', points: 25, icon: '💨', structure: { 'N': [['N', 3]] } },
+            'H2': { name: 'VODÍK', formula: 'H₂', description: 'Nejlehčí prvek. Jednoduchá vazba H-H.', points: 10, icon: '💨', structure: { 'H': [['H', 1]] } },
+            'C2H6': { name: 'ETHAN', formula: 'C₂H₆', description: 'Uhlovodík. Dva uhlíky jednoduchá vazba, každý má 3 vodíky.', points: 40, icon: '⛽', structure: { 'C': [['C', 1], ['H', 1], ['H', 1], ['H', 1]] } },
+            'C2H4': { name: 'ETHYLEN', formula: 'C₂H₄', description: 'Nenasycený uhlovodík. Dvojná vazba C=C, každý má 2 vodíky.', points: 40, icon: '🧪', structure: { 'C': [['C', 2], ['H', 1], ['H', 1]] } },
+            'C2H2': { name: 'ACETYLEN', formula: 'C₂H₂', description: 'Svařovací plyn. Trojná vazba C≡C, každý má 1 vodík.', points: 45, icon: '🔧', structure: { 'C': [['C', 3], ['H', 1]] } },
+            'H2S': { name: 'SIROVODÍK', formula: 'H₂S', description: 'Plyn s vůní zkažených vajec. Síra má 2 vodíky.', points: 15, icon: '💨', structure: { 'S': [['H', 1], ['H', 1]] } },
+            'SO2': { name: 'OXID SIŘIČITÝ', formula: 'SO₂', description: 'Znečišťující plyn. Síra má 2 kyslíky dvojnými vazbami.', points: 30, icon: '🌫️', structure: { 'S': [['O', 2], ['O', 2]] } },
+            'NaCl': { name: 'CHLORID SODNÝ', formula: 'NaCl', description: 'Kuchyňská sůl! Na-Cl jednoduchá vazba.', points: 10, icon: '🧂', structure: { 'Na': [['Cl', 1]] } },
+            'CCl4': { name: 'TETRACHLORMETHAN', formula: 'CCl₄', description: 'Rozpouštědlo. Uhlík má 4 chlóry okolo.', points: 35, icon: '🧪', structure: { 'C': [['Cl', 1], ['Cl', 1], ['Cl', 1], ['Cl', 1]] } },
             'CH3Cl': { name: 'CHLORMETHAN', formula: 'CH₃Cl', description: 'Uhlík s 3 vodíky a 1 chlórem.', points: 25, icon: '🧪' },
             'C3H8': { name: 'PROPAN', formula: 'C₃H₈', description: 'Topný plyn. 3 uhlíky v řadě, okolo vodíky.', points: 35, icon: '🔥' },
             'NO': { name: 'OXID DUSNATÝ', formula: 'NO', description: 'Radikál. Dusík a kyslík dvojná vazba.', points: 15, icon: '💨' },
@@ -532,7 +532,7 @@
         function onPointerDown(e) {
             e.preventDefault();
             const pos = getPointerPos(e);
-            hasMoved = false;
+            hasMoved = false;  // <-- TOHLE JE UŽ TAM
 
             const atomIdx = findAtomAt(pos.x, pos.y);
             if (atomIdx !== null) {
@@ -543,7 +543,6 @@
                     y: pos.y - state.atoms[atomIdx].y
                 };
 
-                // Long press for delete
                 longPressTimer = setTimeout(() => {
                     if (!hasMoved) {
                         removeAtom(atomIdx);
@@ -582,10 +581,10 @@
             if (isDragging) {
                 isDragging = false;
                 state.draggedAtom = null;
+                hasMoved = false;
                 return;
             }
 
-            // Regular tap/click
             if (!hasMoved) {
                 const pos = e.changedTouches ? 
                     { x: e.changedTouches[0].clientX - canvas.getBoundingClientRect().left,
@@ -593,30 +592,25 @@
                     { x: e.clientX - canvas.getBoundingClientRect().left,
                       y: e.clientY - canvas.getBoundingClientRect().top };
 
-                // Check bond first
                 const bondIdx = findBondAt(pos.x, pos.y);
                 if (bondIdx !== null) {
                     cycleBondType(bondIdx);
                     return;
                 }
 
-                // Check atom
                 const atomIdx = findAtomAt(pos.x, pos.y);
                 if (atomIdx !== null) {
                     return;
                 }
 
-                // Place new atom
                 addAtom(pos.x, pos.y, state.selectedAtom);
             }
         }
 
-        // Touch events
         canvas.addEventListener('touchstart', onPointerDown, { passive: false });
         canvas.addEventListener('touchmove', onPointerMove, { passive: false });
         canvas.addEventListener('touchend', onPointerUp, { passive: false });
 
-        // Mouse events
         canvas.addEventListener('mousedown', onPointerDown);
         canvas.addEventListener('mousemove', onPointerMove);
         canvas.addEventListener('mouseup', onPointerUp);
@@ -718,7 +712,6 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Bonds
             state.bonds.forEach(b => {
                 const a1 = state.atoms[b.start];
                 const a2 = state.atoms[b.end];
@@ -772,7 +765,6 @@
                 }
             });
 
-            // Atoms
             state.atoms.forEach(a => {
                 ctx.shadowBlur = 15;
                 ctx.shadowColor = '#00ffff';
@@ -799,7 +791,6 @@
             document.getElementById('debugInfo').textContent = `Atomů: ${state.atoms.length} | Vazeb: ${state.bonds.length}`;
         }
 
-        // Buttons
         document.getElementById('clearBtn').addEventListener('click', () => {
             state.atoms = [];
             state.bonds = [];
@@ -808,6 +799,48 @@
         });
 
         document.getElementById('analyzeBtn').addEventListener('click', analyze);
+
+        function checkBondStructure(formula) {
+            if (!MOLECULES[formula] || !MOLECULES[formula].structure) return true;
+            
+            const expectedStructure = MOLECULES[formula].structure;
+            
+            for (const [centerSymbol, expectedBonds] of Object.entries(expectedStructure)) {
+                const centerAtoms = state.atoms
+                    .map((atom, idx) => ({ atom, idx }))
+                    .filter(({ atom }) => atom.symbol === centerSymbol);
+                
+                if (centerAtoms.length === 0) return false;
+                
+                let foundMatch = false;
+                for (const { idx } of centerAtoms) {
+                    const actualBonds = [];
+                    state.bonds.forEach(bond => {
+                        if (bond.start === idx) {
+                            actualBonds.push([state.atoms[bond.end].symbol, bond.type]);
+                        } else if (bond.end === idx) {
+                            actualBonds.push([state.atoms[bond.start].symbol, bond.type]);
+                        }
+                    });
+                    
+                    const sortedActual = actualBonds.sort((a, b) => 
+                        a[0].localeCompare(b[0]) || a[1] - b[1]
+                    );
+                    const sortedExpected = [...expectedBonds].sort((a, b) => 
+                        a[0].localeCompare(b[0]) || a[1] - b[1]
+                    );
+                    
+                    if (JSON.stringify(sortedActual) === JSON.stringify(sortedExpected)) {
+                        foundMatch = true;
+                        break;
+                    }
+                }
+                
+                if (!foundMatch) return false;
+            }
+            
+            return true;
+        }
 
         function analyze() {
             if (state.atoms.length === 0) {
@@ -826,11 +859,21 @@
                 });
 
                 if (JSON.stringify(counts) === JSON.stringify(expected)) {
-                    // Check if it's the current challenge
+                    if (!checkBondStructure(key)) {
+                        showResult({
+                            name: 'ŠPATNÁ STRUKTURA',
+                            formula: createFormula(counts),
+                            description: `Správné atomy (${mol.name}), ale špatné vazby! Zkontroluj typy vazeb.`,
+                            icon: '⚠️'
+                        });
+                        state.streak = 0;
+                        updateStats();
+                        return;
+                    }
+
                     if (state.currentChallenge && key === state.currentChallenge.target) {
                         handleSuccess(mol);
                     } else {
-                        // Found something else
                         showResult(mol);
                         alert(`💡 Našel jsi ${mol.name}!\nAle potřebuješ: ${state.currentChallenge ? MOLECULES[state.currentChallenge.target].name : 'něco jiného'}`);
                     }
@@ -845,7 +888,7 @@
 
         function createFormula(counts) {
             let f = '';
-            ['C', 'H', 'O', 'N', 'S', 'Cl'].forEach(s => {
+            ['C', 'H', 'O', 'N', 'S', 'Cl', 'Na'].forEach(s => {
                 if (counts[s]) f += s + (counts[s] > 1 ? counts[s] : '');
             });
             return f || '???';
@@ -900,8 +943,7 @@
             document.getElementById('streak').textContent = state.streak;
         }
 
-        // Init
         nextChallenge();
-    </script>
+</script>
 </body>
 </html>
