@@ -6,6 +6,7 @@
     <title>ChemLab App</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%2300ffff'/%3E%3Cstop offset='100%25' style='stop-color:%23ff00ff'/%3E%3C/linearGradient%3E%3CclipPath id='c'%3E%3Ctext x='50%25' y='50%25' font-size='80' text-anchor='middle' dominant-baseline='central'%3E⚗️%3C/text%3E%3C/clipPath%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)' clip-path='url(%23c)'/%3E%3C/svg%3E">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -65,6 +66,206 @@
             color: var(--neon-cyan);
             letter-spacing: 2px;
             margin-top: 5px;
+        }
+
+        .lobby {
+            background: var(--glass-bg);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 18px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .lobby-title {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-green);
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .player-form {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+        }
+
+        .nickname-input {
+            width: 100%;
+            min-height: 48px;
+            background: rgba(10, 14, 26, 0.85);
+            border: 2px solid rgba(0, 255, 255, 0.45);
+            border-radius: 8px;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            font-size: 1rem;
+            padding: 0 12px;
+            outline: none;
+        }
+
+        .nickname-input:focus {
+            border-color: var(--neon-green);
+            box-shadow: 0 0 14px rgba(0, 255, 136, 0.22);
+        }
+
+        .game-badge {
+            border: 1px solid rgba(255, 0, 255, 0.5);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--neon-pink);
+            text-align: center;
+            min-width: 130px;
+        }
+
+        .game-badge strong {
+            display: block;
+            color: #fff;
+            font-size: 0.8rem;
+            margin-top: 3px;
+            overflow-wrap: anywhere;
+        }
+
+        .stat-value.danger {
+            color: #ff6b35;
+            animation: pulse 0.8s infinite;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .mode-screen {
+            max-width: 900px;
+            margin: 0 auto 20px;
+            background: var(--glass-bg);
+            border: 2px solid rgba(0, 255, 255, 0.45);
+            border-radius: 12px;
+            padding: 18px;
+        }
+
+        .mode-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.2rem, 4vw, 2rem);
+            color: var(--neon-green);
+            margin-bottom: 10px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .mode-copy {
+            color: #cbd5e1;
+            line-height: 1.5;
+            text-align: center;
+            margin-bottom: 14px;
+        }
+
+        .mode-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+
+        .host-grid {
+            display: grid;
+            grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .qr-panel {
+            background: #fff;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 244px;
+            display: grid;
+            place-items: center;
+        }
+
+        #qrImage {
+            display: block;
+            width: 220px;
+            height: 220px;
+        }
+
+        .room-code {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan);
+            font-size: clamp(1.8rem, 8vw, 3.4rem);
+            text-align: center;
+            letter-spacing: 4px;
+            margin: 8px 0 12px;
+        }
+
+        .join-url {
+            color: #94a3b8;
+            font-size: 0.78rem;
+            overflow-wrap: anywhere;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .player-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .player-pill {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            align-items: center;
+            background: rgba(10, 14, 26, 0.65);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 9px 10px;
+        }
+
+        .player-pill span:first-child {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .waiting-panel {
+            text-align: center;
+            padding: 18px;
+        }
+
+        .join-code-form {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .join-code-form.hidden {
+            display: none !important;
+        }
+
+        .game-shell {
+            display: block;
+        }
+
+        .final-screen {
+            min-height: 70vh;
+            display: grid;
+            align-content: center;
+            gap: 16px;
+        }
+
+        .final-screen .scoreboard {
+            margin: 0;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.55; }
         }
 
         .stats {
@@ -224,7 +425,7 @@
 
         .controls {
             display: grid;
-            grid-template-columns: 1fr 2fr;
+            grid-template-columns: 1fr 2fr 1fr;
             gap: 10px;
             margin-top: 10px;
         }
@@ -334,9 +535,90 @@
             margin-bottom: 8px;
         }
 
+        .scoreboard {
+            background: var(--glass-bg);
+            border: 1px solid rgba(0, 255, 136, 0.35);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .scoreboard-title {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-green);
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .leaderboard-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .leaderboard-row {
+            display: grid;
+            grid-template-columns: 42px minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            background: rgba(10, 14, 26, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 9px 10px;
+            font-size: 0.85rem;
+        }
+
+        .leaderboard-row.current {
+            border-color: var(--neon-pink);
+            box-shadow: 0 0 12px rgba(255, 0, 255, 0.18);
+        }
+
+        .leaderboard-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .leaderboard-score {
+            color: var(--neon-cyan);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--neon-cyan);
+            border-color: var(--neon-cyan);
+        }
+
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
         @media (min-width: 768px) {
             .canvas-wrapper {
                 height: 500px;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .lobby,
+            .player-form {
+                grid-template-columns: 1fr;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+
+            .host-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .join-code-form {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -357,7 +639,102 @@
             <div class="subtitle">Molekula Builder</div>
         </header>
 
+        <section class="mode-screen hidden" id="entryScreen">
+            <div class="mode-title">ChemLab hra</div>
+            <p class="mode-copy">Vyber, jestli se chces pripojit do existujici hry, nebo jako ucitel vytvorit novou QR hru.</p>
+            <div class="mode-actions">
+                <button class="btn btn-secondary" id="showJoinCodeBtn" type="button">Pripojit se do hry</button>
+                <button class="btn btn-analyze" id="createRoomBtn" type="button">Vytvorit QR hru</button>
+            </div>
+            <form class="join-code-form hidden" id="joinCodeForm">
+                <input class="nickname-input" id="roomCodeInput" maxlength="8" autocomplete="off" placeholder="Kod hry">
+                <button class="btn btn-analyze" type="submit">Pokracovat</button>
+            </form>
+        </section>
+
+        <section class="mode-screen hidden" id="hostScreen">
+            <div class="mode-title">Ucitel lobby</div>
+            <div class="host-grid" id="hostLobbyPanel">
+                <div>
+                    <div class="qr-panel">
+                        <img id="qrImage" alt="QR kod pro pripojeni do hry">
+                    </div>
+                    <div class="room-code" id="roomCode">------</div>
+                    <div class="join-url" id="joinUrl"></div>
+                </div>
+                <div>
+                    <p class="mode-copy">Nasdilej QR kod. Hraci se zapisi prezdivkou a zustanou cekat, dokud hru nespustis.</p>
+                    <div class="mode-actions">
+                        <button class="btn btn-analyze" id="hostStartBtn" type="button">Spustit hru</button>
+                        <button class="btn btn-clear" id="hostFinishBtn" type="button">Ukoncit</button>
+                    </div>
+                    <div class="scoreboard">
+                        <div class="scoreboard-title">Prihlaseni hraci</div>
+                        <div class="player-list" id="hostPlayerList"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="hidden" id="hostRunningPanel">
+                <div class="scoreboard">
+                    <div class="scoreboard-title">Leaderboard</div>
+                    <div class="leaderboard-list" id="hostLeaderboardList"></div>
+                </div>
+                <div class="mode-actions">
+                    <button class="btn btn-clear" id="hostFinishRunningBtn" type="button">Ukoncit</button>
+                </div>
+            </div>
+        </section>
+
+        <section class="mode-screen hidden" id="joinScreen">
+            <div class="mode-title">Zadej prezdivku</div>
+            <p class="mode-copy">Po prihlaseni pockej, az ucitel spusti kolo.</p>
+            <form class="player-form" id="joinForm">
+                <input class="nickname-input" id="joinNameInput" maxlength="18" autocomplete="off" placeholder="Tvoje prezdivka" required>
+                <button class="btn btn-analyze" type="submit">Pripojit</button>
+            </form>
+        </section>
+
+        <section class="mode-screen hidden waiting-panel" id="waitingScreen">
+            <div class="mode-title">Cekas v lobby</div>
+            <p class="mode-copy" id="waitingText">Ucitel jeste nespustil hru.</p>
+            <div class="scoreboard">
+                <div class="scoreboard-title">Prihlaseni hraci</div>
+                <div class="player-list" id="waitingPlayerList"></div>
+            </div>
+        </section>
+
+        <section class="mode-screen hidden final-screen" id="finalScreen">
+            <div class="mode-title">Vysledky hry</div>
+            <p class="mode-copy">Kolo je ukoncene. Tady je konecny leaderboard.</p>
+            <div class="scoreboard">
+                <div class="scoreboard-title">Final leaderboard</div>
+                <div class="leaderboard-list" id="finalLeaderboardList"></div>
+            </div>
+            <div class="mode-actions">
+                <button class="btn btn-analyze" id="backHomeBtn" type="button">Zpet na hlavni</button>
+            </div>
+        </section>
+
+        <main class="game-shell hidden" id="gameShell">
+        <section class="lobby hidden">
+            <div>
+                <div class="lobby-title">Kahoot kolo</div>
+                <form class="player-form" id="playerForm">
+                    <input class="nickname-input" id="nicknameInput" maxlength="18" autocomplete="off" placeholder="Zadej prezdivku" required>
+                    <button class="btn btn-analyze" type="submit" id="startBtn">Start</button>
+                </form>
+            </div>
+            <div class="game-badge">
+                Hrac
+                <strong id="playerName">Ceka se</strong>
+            </div>
+        </section>
+
         <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Cas</div>
+                <div class="stat-value" id="timer">90</div>
+            </div>
             <div class="stat">
                 <div class="stat-label">Skóre</div>
                 <div class="stat-value" id="score">0</div>
@@ -428,6 +805,7 @@
             <div class="controls">
                 <button class="btn btn-clear" id="clearBtn">🗑️ Vymazat</button>
                 <button class="btn btn-analyze" id="analyzeBtn">✓ Analyzovat</button>
+                <button class="btn btn-secondary" id="newRoundBtn" type="button">Nove kolo</button>
             </div>
         </div>
 
@@ -439,6 +817,11 @@
             </div>
         </div>
 
+        <section class="scoreboard">
+            <div class="scoreboard-title">Leaderboard</div>
+            <div class="leaderboard-list" id="leaderboardList"></div>
+        </section>
+
         <div class="hint">
             <div class="hint-title">💡 OVLÁDÁNÍ</div>
             <strong>1.</strong> Tap na atom v paletě<br>
@@ -448,6 +831,7 @@
             <strong>5.</strong> Dlouhý tap = smazat<br>
             <strong>6.</strong> Přesuň atomy prstem
         </div>
+        </main>
     </div>
 
     <script>
@@ -475,9 +859,32 @@
         };
 
         const MOLECULE_KEYS = Object.keys(MOLECULES);
+        const ROUND_SECONDS = 90;
+        const LEADERBOARD_KEY = 'chemlab-kahoot-leaderboard';
+
+        function shuffleValues(values) {
+            if (window._ && typeof _.shuffle === 'function') {
+                return _.shuffle(values);
+            }
+
+            const shuffled = [...values];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
 
         function getRandomChallenge() {
-            const key = MOLECULE_KEYS[Math.floor(Math.random() * MOLECULE_KEYS.length)];
+            if (!state.challengeBag.length) {
+                state.challengeBag = shuffleValues(MOLECULE_KEYS);
+                if (state.lastChallenge && state.challengeBag[0] === state.lastChallenge && state.challengeBag.length > 1) {
+                    state.challengeBag.push(state.challengeBag.shift());
+                }
+            }
+
+            const key = state.challengeBag.shift();
+            state.lastChallenge = key;
             return {
                 text: `Vytvoř ${MOLECULES[key].name} (${MOLECULES[key].formula})`,
                 target: key
@@ -494,7 +901,20 @@
             atoms: [],
             bonds: [],
             draggedAtom: null,
-            dragOffset: { x: 0, y: 0 }
+            dragOffset: { x: 0, y: 0 },
+            playerName: '',
+            gameActive: false,
+            timeLeft: ROUND_SECONDS,
+            timerId: null,
+            challengeBag: [],
+            lastChallenge: null,
+            room: null,
+            hostKey: null,
+            sessionId: null,
+            role: 'solo',
+            eventSource: null,
+            serverSnapshot: null,
+            multiplayer: false
         };
 
         const canvas = document.getElementById('canvas');
@@ -510,6 +930,387 @@
 
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
+
+        const playerForm = document.getElementById('playerForm');
+        const nicknameInput = document.getElementById('nicknameInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const startBtn = document.getElementById('startBtn');
+        const newRoundBtn = document.getElementById('newRoundBtn');
+        const screens = ['entryScreen', 'hostScreen', 'joinScreen', 'waitingScreen', 'finalScreen', 'gameShell'];
+        const SESSION_PREFIX = 'chemlab-session-';
+
+        function showScreen(id) {
+            screens.forEach(screenId => {
+                document.getElementById(screenId).classList.toggle('hidden', screenId !== id);
+            });
+
+            if (id === 'gameShell') {
+                resizeCanvas();
+            }
+        }
+
+        async function api(path, data = null) {
+            const options = data ? {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(data)
+            } : {};
+            const response = await fetch(path, options);
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.error || 'Server error');
+            return payload;
+        }
+
+        function renderPlayerList(targetId, players = []) {
+            const target = document.getElementById(targetId);
+            if (!target) return;
+
+            if (!players.length) {
+                target.innerHTML = '<div class="player-pill"><span>Zatim nikdo</span><strong>0</strong></div>';
+                return;
+            }
+
+            target.innerHTML = players.map(player => `
+                <div class="player-pill">
+                    <span>${escapeHtml(player.name)}</span>
+                    <strong>${player.score || 0}</strong>
+                </div>
+            `).join('');
+        }
+
+        function renderScoreRows(targetId, board = [], currentDate = null) {
+            const list = document.getElementById(targetId);
+            if (!list) return;
+
+            if (!board.length) {
+                list.innerHTML = '<div class="leaderboard-row"><span>#</span><span class="leaderboard-name">Zatim zadne skore</span><span class="leaderboard-score">0</span></div>';
+                return;
+            }
+
+            list.innerHTML = board.map((entry, idx) => `
+                <div class="leaderboard-row ${entry.date === currentDate || entry.name === state.playerName ? 'current' : ''}">
+                    <span>#${idx + 1}</span>
+                    <span class="leaderboard-name">${escapeHtml(entry.name)}</span>
+                    <span class="leaderboard-score">${entry.score}</span>
+                </div>
+            `).join('');
+        }
+
+        function showFinalScreen(snapshot = state.serverSnapshot) {
+            state.gameActive = false;
+            clearInterval(state.timerId);
+            if (snapshot) {
+                renderScoreRows('finalLeaderboardList', snapshot.players);
+                renderLeaderboard(snapshot.players);
+            }
+            showScreen('finalScreen');
+        }
+
+        function rememberSession() {
+            if (!state.room || !state.sessionId) return;
+            localStorage.setItem(`${SESSION_PREFIX}${state.room}`, JSON.stringify({
+                sessionId: state.sessionId,
+                name: state.playerName
+            }));
+        }
+
+        function forgetSessions() {
+            Object.keys(localStorage)
+                .filter(key => key.startsWith(SESSION_PREFIX))
+                .forEach(key => localStorage.removeItem(key));
+        }
+
+        function connectEvents() {
+            if (!state.room) return;
+            if (state.eventSource) state.eventSource.close();
+
+            const hostParam = state.role === 'host' && state.hostKey ? `&hostKey=${encodeURIComponent(state.hostKey)}` : '';
+            state.eventSource = new EventSource(`/events?room=${encodeURIComponent(state.room)}${hostParam}`);
+            state.eventSource.onmessage = (event) => {
+                applyRoomSnapshot(JSON.parse(event.data));
+            };
+            state.eventSource.onerror = () => {
+                document.getElementById('waitingText').textContent = 'Spojeni se serverem vypadlo. Obnov stranku.';
+            };
+        }
+
+        function applyRoomSnapshot(snapshot) {
+            state.serverSnapshot = snapshot;
+            state.timeLeft = snapshot.timeLeft;
+            renderPlayerList('hostPlayerList', snapshot.players);
+            renderPlayerList('waitingPlayerList', snapshot.players);
+            renderLeaderboard(snapshot.players);
+            renderScoreRows('hostLeaderboardList', snapshot.players);
+            renderScoreRows('finalLeaderboardList', snapshot.players);
+            updateStats();
+
+            if (state.role === 'host') {
+                if (snapshot.status === 'finished') {
+                    showFinalScreen(snapshot);
+                    return;
+                }
+                showScreen('hostScreen');
+                const running = snapshot.status === 'running';
+                document.getElementById('hostLobbyPanel').classList.toggle('hidden', running);
+                document.getElementById('hostRunningPanel').classList.toggle('hidden', !running);
+                document.getElementById('hostStartBtn').disabled = snapshot.status === 'running';
+                return;
+            }
+
+            if (state.role === 'player') {
+                if (snapshot.status === 'lobby') {
+                    showScreen('waitingScreen');
+                    document.getElementById('waitingText').textContent = `Jsi prihlasen jako ${state.playerName}. Cekas na ucitele.`;
+                } else if (snapshot.status === 'running' && !state.gameActive) {
+                    startGame(state.playerName);
+                } else if (snapshot.status === 'finished') {
+                    showFinalScreen(snapshot);
+                }
+            }
+        }
+
+        async function createRoom() {
+            const room = await api('/api/rooms', {});
+            state.room = room.room;
+            state.hostKey = room.hostKey;
+            state.role = 'host';
+            state.multiplayer = true;
+            window.history.replaceState({}, '', `?host=${encodeURIComponent(room.hostKey)}&room=${encodeURIComponent(room.room)}`);
+            document.getElementById('roomCode').textContent = room.room;
+            document.getElementById('joinUrl').textContent = room.joinUrl;
+            document.getElementById('qrImage').src = `/api/qr?room=${encodeURIComponent(room.room)}&url=${encodeURIComponent(room.joinUrl)}`;
+
+            connectEvents();
+            showScreen('hostScreen');
+        }
+
+        async function hydrateFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const room = (params.get('room') || '').toUpperCase();
+            const hostKey = params.get('host');
+
+            if (room && hostKey) {
+                try {
+                    await api(`/api/room?room=${encodeURIComponent(room)}&hostKey=${encodeURIComponent(hostKey)}`);
+                    state.room = room;
+                    state.hostKey = hostKey;
+                    state.role = 'host';
+                    state.multiplayer = true;
+                    document.getElementById('roomCode').textContent = room;
+                    const joinUrl = `${location.origin}/?room=${encodeURIComponent(room)}`;
+                    document.getElementById('joinUrl').textContent = joinUrl;
+                    document.getElementById('qrImage').src = `/api/qr?room=${encodeURIComponent(room)}&url=${encodeURIComponent(joinUrl)}`;
+                    connectEvents();
+                    showScreen('hostScreen');
+                } catch {
+                    window.history.replaceState({}, '', location.pathname);
+                    showScreen('entryScreen');
+                    alert('Tahle hra uz nebezi. Vytvor novou QR hru.');
+                }
+                return;
+            }
+
+            if (room) {
+                state.room = room;
+                state.role = 'player';
+                state.multiplayer = true;
+                const saved = JSON.parse(localStorage.getItem(`${SESSION_PREFIX}${room}`) || 'null');
+                if (saved && saved.sessionId) {
+                    try {
+                        const resumed = await api('/api/resume', {
+                            room,
+                            sessionId: saved.sessionId
+                        });
+                        state.sessionId = resumed.sessionId;
+                        state.playerName = resumed.name || saved.name;
+                        connectEvents();
+                        applyRoomSnapshot(resumed.snapshot);
+                        return;
+                    } catch {
+                        localStorage.removeItem(`${SESSION_PREFIX}${room}`);
+                    }
+                }
+                showScreen('joinScreen');
+                return;
+            }
+
+            showScreen('entryScreen');
+        }
+
+        document.getElementById('createRoomBtn').addEventListener('click', () => {
+            createRoom().catch(err => alert(err.message));
+        });
+
+        document.getElementById('showJoinCodeBtn').addEventListener('click', () => {
+            document.getElementById('joinCodeForm').classList.toggle('hidden');
+            document.getElementById('roomCodeInput').focus();
+        });
+
+        document.getElementById('joinCodeForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const code = document.getElementById('roomCodeInput').value
+                .trim()
+                .replace(/[^a-z0-9]/gi, '')
+                .toUpperCase();
+
+            if (!code) return;
+            window.location.href = `?room=${encodeURIComponent(code)}`;
+        });
+
+        document.getElementById('joinForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('joinNameInput').value.trim().replace(/\s+/g, ' ').slice(0, 18);
+            if (!name) return;
+
+            try {
+                const joined = await api('/api/join', { room: state.room, name });
+                state.sessionId = joined.sessionId;
+                state.playerName = name;
+                rememberSession();
+                connectEvents();
+                applyRoomSnapshot(joined.snapshot);
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+
+        document.getElementById('hostStartBtn').addEventListener('click', () => {
+            api('/api/start', { room: state.room, hostKey: state.hostKey }).catch(err => alert(err.message));
+        });
+
+        document.getElementById('hostFinishBtn').addEventListener('click', () => {
+            api('/api/finish', { room: state.room, hostKey: state.hostKey }).catch(err => alert(err.message));
+        });
+
+        document.getElementById('hostFinishRunningBtn').addEventListener('click', () => {
+            api('/api/finish', { room: state.room, hostKey: state.hostKey }).catch(err => alert(err.message));
+        });
+
+        document.getElementById('backHomeBtn').addEventListener('click', () => {
+            if (state.eventSource) state.eventSource.close();
+            state.eventSource = null;
+            clearInterval(state.timerId);
+            state.gameActive = false;
+            state.room = null;
+            state.hostKey = null;
+            state.sessionId = null;
+            state.playerName = '';
+            state.role = 'solo';
+            state.multiplayer = false;
+            state.serverSnapshot = null;
+            forgetSessions();
+            window.history.replaceState({}, '', location.pathname);
+            renderLeaderboard();
+            updateStats();
+            showScreen('entryScreen');
+        });
+
+        function getLeaderboard() {
+            try {
+                return JSON.parse(localStorage.getItem(LEADERBOARD_KEY)) || [];
+            } catch {
+                return [];
+            }
+        }
+
+        function saveLeaderboard(entry) {
+            const board = getLeaderboard();
+            board.push(entry);
+            board.sort((a, b) => b.score - a.score || b.completed - a.completed || a.date - b.date);
+            localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(board.slice(0, 8)));
+            renderLeaderboard(entry.date);
+        }
+
+        function renderLeaderboard(currentDateOrPlayers = null) {
+            const isPlayers = Array.isArray(currentDateOrPlayers);
+            const currentDate = isPlayers ? null : currentDateOrPlayers;
+            const board = isPlayers ? currentDateOrPlayers : getLeaderboard();
+            renderScoreRows('leaderboardList', board, currentDate);
+        }
+
+        function escapeHtml(value) {
+            return String(value).replace(/[&<>"']/g, char => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
+        }
+
+        function setGameControls() {
+            analyzeBtn.disabled = !state.gameActive;
+            startBtn.textContent = state.gameActive ? 'Restart' : 'Start';
+            document.getElementById('playerName').textContent = state.playerName || 'Ceka se';
+        }
+
+        function startGame(name) {
+            clearInterval(state.timerId);
+            state.score = 0;
+            state.level = 1;
+            state.completed = 0;
+            state.streak = 0;
+            state.timeLeft = state.serverSnapshot ? state.serverSnapshot.timeLeft : ROUND_SECONDS;
+            state.playerName = name;
+            state.gameActive = true;
+            state.challengeBag = [];
+            state.lastChallenge = null;
+
+            updateStats();
+            setGameControls();
+            nextChallenge();
+            showScreen('gameShell');
+
+            if (!state.multiplayer) {
+                state.timerId = setInterval(() => {
+                    state.timeLeft--;
+                    updateStats();
+                    if (state.timeLeft <= 0) {
+                        finishGame();
+                    }
+                }, 1000);
+            }
+        }
+
+        function finishGame() {
+            if (!state.gameActive) return;
+
+            clearInterval(state.timerId);
+            state.gameActive = false;
+            state.timeLeft = 0;
+            setGameControls();
+            updateStats();
+            if (!state.multiplayer) {
+                saveLeaderboard({
+                    name: state.playerName || 'Anonym',
+                    score: state.score,
+                    completed: state.completed,
+                    date: Date.now()
+                });
+            }
+            showResult({
+                name: 'KONEC KOLA',
+                formula: `${state.score} bodu`,
+                description: `${state.playerName || 'Hrac'} dokoncil ${state.completed} molekul. Zadej prezdivku a dej Start pro dalsi pokus.`,
+                icon: '🏁'
+            });
+        }
+
+        playerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const cleanName = nicknameInput.value.trim().replace(/\s+/g, ' ').slice(0, 18);
+            if (!cleanName) {
+                nicknameInput.focus();
+                return;
+            }
+            startGame(cleanName);
+        });
+
+        newRoundBtn.addEventListener('click', () => {
+            const cleanName = nicknameInput.value.trim() || state.playerName || 'Hrac';
+            nicknameInput.value = cleanName;
+            startGame(cleanName);
+        });
 
         // Atom selection
         document.querySelectorAll('.atom-btn').forEach(btn => {
@@ -853,6 +1654,11 @@
         }
 
         function analyze() {
+            if (!state.gameActive) {
+                alert('Nejdriv zadej prezdivku a spust kolo.');
+                return;
+            }
+
             if (state.atoms.length === 0) {
                 alert('❌ Nejdřív přidej atomy!');
                 return;
@@ -868,7 +1674,7 @@
                     expected[sym] = num ? parseInt(num) : 1;
                 });
 
-                if (JSON.stringify(counts) === JSON.stringify(expected)) {
+                if (sameCounts(counts, expected)) {
                     if (!checkBondStructure(key)) {
                         showResult({
                             name: 'ŠPATNÁ STRUKTURA',
@@ -896,6 +1702,14 @@
             updateStats();
         }
 
+        function sameCounts(actual, expected) {
+            const keys = new Set([...Object.keys(actual), ...Object.keys(expected)]);
+            for (const key of keys) {
+                if ((actual[key] || 0) !== (expected[key] || 0)) return false;
+            }
+            return true;
+        }
+
         function createFormula(counts) {
             let f = '';
             ['C', 'H', 'O', 'N', 'S', 'Cl', 'Na'].forEach(s => {
@@ -905,9 +1719,21 @@
         }
 
         function handleSuccess(mol) {
-            state.score += mol.points;
+            const speedBonus = Math.max(0, Math.ceil(state.timeLeft / 10));
+            const streakBonus = Math.min(10, state.streak * 2);
+            const earned = mol.points + speedBonus + streakBonus;
+
+            state.score += earned;
             state.streak++;
             state.completed++;
+
+            if (state.multiplayer && state.sessionId) {
+                api('/api/score', {
+                    room: state.room,
+                    sessionId: state.sessionId,
+                    delta: earned
+                }).catch(() => {});
+            }
 
             if (state.completed % 5 === 0) state.level++;
 
@@ -915,10 +1741,10 @@
             showResult(mol);
 
             setTimeout(() => {
-                if (confirm(`🎉 ${mol.name}!\n\n+${mol.points} bodů | Série: ${state.streak}\n\nDalší výzva?`)) {
+                if (state.gameActive) {
                     nextChallenge();
                 }
-            }, 400);
+            }, 850);
         }
 
         function showResult(mol) {
@@ -947,13 +1773,25 @@
         }
 
         function updateStats() {
-            document.getElementById('score').textContent = state.score;
+            const serverPlayer = state.serverSnapshot && state.sessionId
+                ? state.serverSnapshot.players.find(player => player.id === state.sessionId || player.name === state.playerName)
+                : null;
+
+            document.getElementById('score').textContent = serverPlayer ? serverPlayer.score : state.score;
             document.getElementById('level').textContent = state.level;
-            document.getElementById('completed').textContent = state.completed;
+            document.getElementById('completed').textContent = serverPlayer ? serverPlayer.completed : state.completed;
             document.getElementById('streak').textContent = state.streak;
+            const timerEl = document.getElementById('timer');
+            timerEl.textContent = state.serverSnapshot ? state.serverSnapshot.timeLeft : state.timeLeft;
+            timerEl.classList.toggle('danger', state.gameActive && state.timeLeft <= 10);
         }
 
-        nextChallenge();
+        renderLeaderboard();
+        updateStats();
+        setGameControls();
+        document.getElementById('challengeText').textContent = 'Zadej prezdivku a spust 90s kolo.';
+        showResult(null);
+        hydrateFromUrl();
 </script>
 </body>
 </html>

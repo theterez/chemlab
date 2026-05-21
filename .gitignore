@@ -1,0 +1,5 @@
+node_modules/
+rooms-store.json
+chemlab-preview.png
+chemlab-*-preview.png
+npm-debug.log*
