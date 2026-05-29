@@ -1,3 +1,24 @@
+// Přidej HNED NA ZAČÁTEK try bloku, před všechny ostatní if:
+if (req.method === 'GET' && url.pathname === '/api/debug') {
+  let firebaseStatus = 'unknown';
+  try {
+    await db.ref('__test__').once('value');
+    firebaseStatus = 'OK - Firebase připojeno';
+  } catch (e) {
+    firebaseStatus = 'CHYBA: ' + e.message;
+  }
+  
+  return json(res, 200, {
+    firebase: firebaseStatus,
+    nodeVersion: process.version,
+    env: {
+      hasGoogleCreds: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      hasFirebaseUrl: !!process.env.FIREBASE_DATABASE_URL,
+    }
+  });
+}
+
+
 // api/server.js
 const crypto = require('crypto');
 const admin = require('firebase-admin');
