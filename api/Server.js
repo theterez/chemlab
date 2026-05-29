@@ -1,20 +1,18 @@
-// server.js - Upraveno pro Vercel Serverless + Firebase Admin SDK
+// api/server.js
 const crypto = require('crypto');
 const QRCode = require('qrcode');
 const admin = require('firebase-admin');
 
-// 1. Inicializace Firebase na straně serveru
-// Použijeme tvou Realtime Database URL. Klíče jsou bezpečně na backendu.
+// Inicializace Firebase bez složitých autentizací – přímo přes URL databáze
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.applicationDefault(), // Vercel si to přebere automaticky, nebo použije veřejný přístup k RTDB podle pravidel
     databaseURL: "https://chemlab-33ea2-default-rtdb.europe-west1.firebasedatabase.app"
   });
 }
 
 const db = admin.database();
 
-// Pomocné funkce pro generování ID (shodné s tvým původním kódem)
+// Pomocné funkce pro generování ID a kódů místností
 function id(bytes = 12) {
   return crypto.randomBytes(bytes).toString('base64url');
 }
@@ -31,7 +29,7 @@ function cleanName(name) {
     .slice(0, 18) || 'Hrac';
 }
 
-// Transformace struktury z Firebase pro frontend (aby se nemusel přepisovat frontend)
+// Převod dat z Firebase do formátu, který očekává tvůj frontend
 function formatSnapshot(roomData, includeSessionIds = false) {
   if (!roomData) return null;
   
@@ -48,7 +46,7 @@ function formatSnapshot(roomData, includeSessionIds = false) {
     });
   }
 
-  // Seřazení podle skóre
+  // Seřazení podle bodů (kdo má víc, je první)
   playersArray.sort((a, b) => b.score - a.score || b.completed - a.completed || a.joinedAt - b.joinedAt);
 
   const now = Date.now();
@@ -64,7 +62,7 @@ function formatSnapshot(roomData, includeSessionIds = false) {
   };
 }
 
-// Pomocná funkce pro čtení JSON těla v Serverless prostředí
+// Pomocné funkce pro zpracování požadavků
 function readJson(req) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -80,14 +78,13 @@ function json(res, status, data) {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
-    'Access-Control-Allow-Origin': '*' // CORS ochrana
+    'Access-Control-Allow-Origin': '*'
   });
   res.end(JSON.stringify(data));
 }
 
-// Hlavní exportovaná funkce pro Vercel (místo http.createServer)
+// Hlavní tělo serverless funkce pro Vercel
 module.exports = async (req, res) => {
-  // Ošetření CORS předběžných požadavků (Preflight)
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
@@ -102,12 +99,12 @@ module.exports = async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const host = req.headers.host || 'chemlabproject.vercel.app';
 
-    // 1. API: HEALTH CHECK
+    // 1. Test funkčnosti serveru
     if (req.method === 'GET' && url.pathname === '/api/health') {
       return json(res, 200, { ok: true });
     }
 
-    // 2. API: VYTVOŘENÍ MÍSTNOSTI
+    // 2. Vytvoření nové místnosti učitelem
     if (req.method === 'POST' && url.pathname === '/api/rooms') {
       const code = roomCode();
       const roomHostKey = id(18);
@@ -123,7 +120,7 @@ module.exports = async (req, res) => {
         players: {}
       };
 
-      // Zápis do Firebase místo lokálního pole
+      // Uložení místnosti do Firebase
       await db.ref(`rooms/${code}`).set(newRoom);
 
       const origin = `https://${host}`;
@@ -135,29 +132,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    // 3. API: GENEROVÁNÍ QR KÓDU (Bez závislosti na lokálním stavu)
-    if (req.method === 'GET' && url.pathname === '/api/qr') {
-      const roomParam = (url.searchParams.get('room') || '').toUpperCase();
-      const roomSnapshot = await db.ref(`rooms/${roomParam}`).once('value');
-      
-      if (!roomSnapshot.exists()) {
-        res.writeHead(404);
-        return res.end('Room not found');
-      }
-
-      const target = url.searchParams.get('url') || `https://${host}/?room=${roomParam}`;
-      const svg = await QRCode.toString(target, {
-        type: 'svg',
-        margin: 1,
-        width: 320,
-        color: { dark: '#0a0e1a', light: '#ffffff' }
-      });
-
-      res.writeHead(200, { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'no-store' });
-      return res.end(svg);
-    }
-
-    // 4. API: ZÍSKÁNÍ STAVU MÍSTNOSTI (Polling náhrada za SSE stream)
+    // 3. Kontrola stavu místnosti (pro polling z frontendu)
     if (req.method === 'GET' && url.pathname === '/api/room') {
       const roomParam = (url.searchParams.get('room') || '').toUpperCase();
       const roomSnapshot = await db.ref(`rooms/${roomParam}`).once('value');
@@ -169,7 +144,7 @@ module.exports = async (req, res) => {
       return json(res, 200, formatSnapshot(roomData, isHost));
     }
 
-    // 5. API: PŘIPOJENÍ ŽÁKA
+    // 4. Připojení nového žáka do čekárny
     if (req.method === 'POST' && url.pathname === '/api/join') {
       const body = await readJson(req);
       const roomParam = String(body.room || '').toUpperCase();
@@ -177,9 +152,9 @@ module.exports = async (req, res) => {
       const roomRef = db.ref(`rooms/${roomParam}`);
       const roomSnapshot = await roomRef.once('value');
       
-      if (!roomSnapshot.exists()) return json(res, 404, { error: 'Room not found' });
+      if (!roomSnapshot.exists()) return json(res, 404, { error: 'Místnost neexistuje' });
       const roomData = roomSnapshot.val();
-      if (roomData.status !== 'lobby') return json(res, 409, { error: 'Game already started' });
+      if (roomData.status !== 'lobby') return json(res, 409, { error: 'Hra již byla spuštěna' });
 
       const sessionId = id();
       const newPlayer = {
@@ -192,12 +167,11 @@ module.exports = async (req, res) => {
 
       await roomRef.child(`players/${sessionId}`).set(newPlayer);
       
-      // Načteme čerstvá data po zápisu
       const updatedSnapshot = await roomRef.once('value');
       return json(res, 200, { sessionId, snapshot: formatSnapshot(updatedSnapshot.val()) });
     }
 
-    // 6. API: START HRY UČITELEM
+    // 5. Spuštění odpočtu učitelem
     if (req.method === 'POST' && url.pathname === '/api/start') {
       const body = await readJson(req);
       const roomParam = String(body.room || '').toUpperCase();
@@ -206,7 +180,7 @@ module.exports = async (req, res) => {
       const roomSnapshot = await roomRef.once('value');
       
       if (!roomSnapshot.exists() || body.hostKey !== roomSnapshot.val().hostKey) {
-        return json(res, 403, { error: 'Host key required' });
+        return json(res, 403, { error: 'Neoprávněný přístup' });
       }
 
       const updates = {
@@ -215,7 +189,7 @@ module.exports = async (req, res) => {
         finishedAt: null
       };
 
-      // Vynulování skóre všem hráčům při startu
+      // Vynulování bodů všem připojeným pro jistotu
       const roomData = roomSnapshot.val();
       if (roomData.players) {
         Object.keys(roomData.players).forEach(pId => {
@@ -229,7 +203,7 @@ module.exports = async (req, res) => {
       return json(res, 200, formatSnapshot(updatedSnapshot.val(), true));
     }
 
-    // 7. API: ODESLÁNÍ SKÓRE ŽÁKEM
+    // 6. Přičtení skóre, když žák složí molekulu správně
     if (req.method === 'POST' && url.pathname === '/api/score') {
       const body = await readJson(req);
       const roomParam = String(body.room || '').toUpperCase();
@@ -238,18 +212,18 @@ module.exports = async (req, res) => {
       const roomSnapshot = await roomRef.once('value');
       
       if (!roomSnapshot.exists() || roomSnapshot.val().status !== 'running') {
-        return json(res, 409, { error: 'Game is not running' });
+        return json(res, 409, { error: 'Hra neběží' });
       }
 
       const sessionId = String(body.sessionId || '');
       const playerRef = roomRef.child(`players/${sessionId}`);
       const playerSnapshot = await playerRef.once('value');
       
-      if (!playerSnapshot.exists()) return json(res, 403, { error: 'Player session required' });
+      if (!playerSnapshot.exists()) return json(res, 403, { error: 'Hráč neexistuje' });
 
       const delta = Math.max(0, Math.min(80, Number(body.delta || 0)));
       
-      // Bezpečné přičtení skóre pomocí Firebase transakce
+      // Bezpečné přičtení bodů ve Firebase
       await playerRef.transaction((player) => {
         if (player) {
           player.score = (player.score || 0) + delta;
@@ -262,7 +236,7 @@ module.exports = async (req, res) => {
       return json(res, 200, formatSnapshot(updatedSnapshot.val()));
     }
 
-    // 8. API: UKONČENÍ HRY UČITELEM
+    // 7. Konec hry učitelem (vypršel čas nebo stopnuto ručně)
     if (req.method === 'POST' && url.pathname === '/api/finish') {
       const body = await readJson(req);
       const roomParam = String(body.room || '').toUpperCase();
@@ -271,7 +245,7 @@ module.exports = async (req, res) => {
       const roomSnapshot = await roomRef.once('value');
       
       if (!roomSnapshot.exists() || body.hostKey !== roomSnapshot.val().hostKey) {
-        return json(res, 403, { error: 'Host key required' });
+        return json(res, 403, { error: 'Neoprávněný přístup' });
       }
 
       await roomRef.update({
@@ -283,12 +257,11 @@ module.exports = async (req, res) => {
       return json(res, 200, formatSnapshot(updatedSnapshot.val(), true));
     }
 
-    // Pokud požadavek nesplňuje endpointy
     res.writeHead(404);
-    res.end('Not Found');
+    res.end('Nenalezeno');
 
   } catch (err) {
     console.error(err);
-    json(res, 500, { error: 'Server error' });
+    json(res, 500, { error: 'Chyba na serveru' });
   }
 };
