@@ -1,6 +1,5 @@
 // api/server.js
 const crypto = require('crypto');
-const QRCode = require('qrcode');
 const admin = require('firebase-admin');
 
 // Inicializace Firebase bez složitých autentizací – přímo přes URL databáze
