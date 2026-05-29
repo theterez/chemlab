@@ -25,12 +25,16 @@ const MIME = {
 
 function getLanAddress() {
   const candidates = [];
-  for (const [name, group] of Object.entries(os.networkInterfaces())) {
-    for (const iface of group || []) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        candidates.push({ name, address: iface.address });
+  try {
+    for (const [name, group] of Object.entries(os.networkInterfaces())) {
+      for (const iface of group || []) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          candidates.push({ name, address: iface.address });
+        }
       }
     }
+  } catch (e) {
+    return '127.0.0.1';
   }
 
   const preferred = candidates.find(({ name, address }) =>
@@ -39,7 +43,7 @@ function getLanAddress() {
     !/^192\.168\.56\./.test(address)
   );
 
-  return (preferred || candidates[0] || {}).address || null;
+  return (preferred || candidates[0] || {}).address || '127.0.0.1';
 }
 
 function id(bytes = 12) {
@@ -105,17 +109,25 @@ function hydrateRoom(raw) {
   };
 }
 
+let saveTimeout = null;
 function saveRooms() {
-  const data = [...rooms.values()].map(serializeRoom);
-  fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), () => {});
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    const data = [...rooms.values()].map(serializeRoom);
+    fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), (err) => {
+      if (err) console.error('Chyba zapisu souboru:', err);
+    });
+  }, 500); 
 }
 
 function loadRooms() {
   try {
-    const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    raw.forEach(room => rooms.set(room.code, hydrateRoom(room)));
-  } catch {
-    // No local room store yet.
+    if (fs.existsSync(DATA_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+      raw.forEach(room => rooms.set(room.code.toUpperCase(), hydrateRoom(room)));
+    }
+  } catch (e) {
+    console.error('Nepodarilo se nacist rooms-store.json:', e);
   }
 }
 
@@ -132,11 +144,12 @@ function snapshot(room, host = false) {
 
   const now = Date.now();
   const elapsed = room.startedAt ? Math.floor((now - room.startedAt) / 1000) : 0;
-  const timeLeft = room.status === 'running' ? Math.max(0, room.roundSeconds - elapsed) : room.roundSeconds;
+  let timeLeft = room.status === 'running' ? Math.max(0, room.roundSeconds - elapsed) : room.roundSeconds;
 
   if (room.status === 'running' && timeLeft <= 0) {
     room.status = 'finished';
     room.finishedAt = room.finishedAt || Date.now();
+    timeLeft = 0;
     saveRooms();
   }
 
@@ -150,8 +163,15 @@ function snapshot(room, host = false) {
 }
 
 function broadcast(room) {
+  const dataStr = JSON.stringify(snapshot(room));
+  const hostDataStr = JSON.stringify(snapshot(room, true));
+  
   for (const client of room.clients) {
-    client.res.write(`data: ${JSON.stringify(snapshot(room, client.host))}\n\n`);
+    try {
+      client.res.write(`data: ${client.host ? hostDataStr : dataStr}\n\n`);
+    } catch (e) {
+      room.clients.delete(client);
+    }
   }
 }
 
@@ -232,7 +252,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/qr') {
-      const room = rooms.get(url.searchParams.get('room'));
+      const roomParam = (url.searchParams.get('room') || '').toUpperCase();
+      const room = rooms.get(roomParam);
       if (!room) {
         res.writeHead(404);
         res.end('Room not found');
@@ -256,14 +277,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/room') {
-      const room = rooms.get(url.searchParams.get('room'));
+      const roomParam = (url.searchParams.get('room') || '').toUpperCase();
+      const room = rooms.get(roomParam);
       if (!room) return json(res, 404, { error: 'Room not found' });
       json(res, 200, snapshot(room, url.searchParams.get('hostKey') === room.hostKey));
       return;
     }
 
     if (req.method === 'GET' && url.pathname === '/events') {
-      const room = rooms.get(url.searchParams.get('room'));
+      const roomParam = (url.searchParams.get('room') || '').toUpperCase();
+      const room = rooms.get(roomParam);
       if (!room) {
         res.writeHead(404);
         res.end('Room not found');
@@ -273,10 +296,11 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, {
         'content-type': 'text/event-stream; charset=utf-8',
         'cache-control': 'no-store',
-        connection: 'keep-alive'
+        'connection': 'keep-alive'
       });
       const client = { res, host: url.searchParams.get('hostKey') === room.hostKey };
       room.clients.add(client);
+      
       res.write(`data: ${JSON.stringify(snapshot(room, client.host))}\n\n`);
       req.on('close', () => room.clients.delete(client));
       return;
@@ -284,7 +308,8 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/join') {
       const body = await readJson(req);
-      const room = rooms.get(String(body.room || '').toUpperCase());
+      const roomParam = String(body.room || '').toUpperCase();
+      const room = rooms.get(roomParam);
       if (!room) return json(res, 404, { error: 'Room not found' });
       if (room.status !== 'lobby') return json(res, 409, { error: 'Game already started' });
 
@@ -304,7 +329,8 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/resume') {
       const body = await readJson(req);
-      const room = rooms.get(String(body.room || '').toUpperCase());
+      const roomParam = String(body.room || '').toUpperCase();
+      const room = rooms.get(roomParam);
       if (!room) return json(res, 404, { error: 'Room not found' });
       const player = room.players.get(String(body.sessionId || ''));
       if (!player) return json(res, 404, { error: 'Session not found' });
@@ -318,7 +344,8 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/start') {
       const body = await readJson(req);
-      const room = rooms.get(String(body.room || '').toUpperCase());
+      const roomParam = String(body.room || '').toUpperCase();
+      const room = rooms.get(roomParam);
       if (!room || body.hostKey !== room.hostKey) return json(res, 403, { error: 'Host key required' });
       room.status = 'running';
       room.startedAt = Date.now();
@@ -335,7 +362,8 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/score') {
       const body = await readJson(req);
-      const room = rooms.get(String(body.room || '').toUpperCase());
+      const roomParam = String(body.room || '').toUpperCase();
+      const room = rooms.get(roomParam);
       if (!room || room.status !== 'running') return json(res, 409, { error: 'Game is not running' });
       const player = room.players.get(String(body.sessionId || ''));
       if (!player) return json(res, 403, { error: 'Player session required' });
@@ -351,7 +379,8 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/finish') {
       const body = await readJson(req);
-      const room = rooms.get(String(body.room || '').toUpperCase());
+      const roomParam = String(body.room || '').toUpperCase();
+      const room = rooms.get(roomParam);
       if (!room || body.hostKey !== room.hostKey) return json(res, 403, { error: 'Host key required' });
       room.status = 'finished';
       room.finishedAt = Date.now();
@@ -367,26 +396,37 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// Efektivní a bezpečný cron interval
 setInterval(() => {
   const now = Date.now();
+  let changed = false;
+
   for (const room of rooms.values()) {
-    if (room.status === 'running' && snapshot(room).timeLeft <= 0) {
-      room.status = 'finished';
-      room.finishedAt = room.finishedAt || Date.now();
-      saveRooms();
-      broadcast(room);
+    if (room.status === 'running') {
+      const elapsed = Math.floor((now - room.startedAt) / 1000);
+      if (elapsed >= room.roundSeconds) {
+        room.status = 'finished';
+        room.finishedAt = now;
+        changed = true;
+        broadcast(room);
+      }
     }
 
     const finishedTooOld = room.status === 'finished' && room.finishedAt && now - room.finishedAt > 2 * 60 * 60 * 1000;
     const lobbyTooOld = room.status === 'lobby' && now - room.createdAt > 6 * 60 * 60 * 1000;
+    
     if (finishedTooOld || lobbyTooOld) {
-      rooms.delete(room.code);
-      saveRooms();
+      rooms.delete(room.code.toUpperCase());
+      changed = true;
     }
+  }
+
+  if (changed) {
+    saveRooms();
   }
 }, 1000);
 
 loadRooms();
 server.listen(PORT, HOST, () => {
-  console.log(`ChemLab server: http://${PUBLIC_HOST}:${PORT}/`);
+  console.log(`ChemLab server plně funkční na: http://${PUBLIC_HOST}:${PORT}/`);
 });
