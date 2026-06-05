@@ -1,7 +1,6 @@
 // api/server.js
 const crypto = require('crypto');
 
-// ── Env proměnné (stejný systém jako PhishPond) ──────────────────────────────
 const REQUIRED_ENV = [
   'FIREBASE_PROJECT_ID',
   'FIREBASE_CLIENT_EMAIL',
@@ -22,7 +21,6 @@ function getEnv() {
   };
 }
 
-// ── JWT / OAuth ───────────────────────────────────────────────────────────────
 function b64url(input) {
   return Buffer.from(input).toString('base64')
     .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
@@ -58,7 +56,6 @@ async function getAccessToken() {
   return cachedToken.value;
 }
 
-// ── Firebase REST ─────────────────────────────────────────────────────────────
 async function fbReq(path, opts = {}) {
   const env   = getEnv();
   const token = await getAccessToken();
@@ -77,7 +74,6 @@ async function fbReq(path, opts = {}) {
   return data;
 }
 
-// ── Pomocné funkce ────────────────────────────────────────────────────────────
 function uid(bytes = 12) { return crypto.randomBytes(bytes).toString('base64url'); }
 function roomCode()      { return crypto.randomBytes(3).toString('hex').toUpperCase(); }
 
@@ -140,7 +136,6 @@ function formatSnapshot(roomData, includeIds = false) {
   };
 }
 
-// ── Hlavní handler ────────────────────────────────────────────────────────────
 module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
@@ -155,12 +150,15 @@ module.exports = async (req, res) => {
   try {
     const url  = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const host = req.headers.host || 'chemlabproject.vercel.app';
+    const path = url.pathname.replace(/^\/api\/server/, '/api');
 
     // DEBUG
-    if (req.method === 'GET' && url.pathname === '/api/debug') {
+    if (req.method === 'GET' && (path === '/api/debug' || path === '/api')) {
       const result = {
         env: Object.fromEntries(REQUIRED_ENV.map(k => [k, !!process.env[k]])),
         nodeVersion: process.version,
+        originalUrl: req.url,
+        path,
       };
       try { await fbReq('__ping__'); result.firebase = 'OK'; }
       catch (e) { result.firebase = 'CHYBA: ' + e.message; }
@@ -168,12 +166,12 @@ module.exports = async (req, res) => {
     }
 
     // HEALTH
-    if (req.method === 'GET' && url.pathname === '/api/health') {
+    if (req.method === 'GET' && path === '/api/health') {
       return json(res, 200, { ok: true });
     }
 
     // VYTVOŘENÍ MÍSTNOSTI
-    if (req.method === 'POST' && url.pathname === '/api/rooms') {
+    if (req.method === 'POST' && path === '/api/rooms') {
       const code        = roomCode();
       const roomHostKey = uid(18);
       const newRoom = {
@@ -191,7 +189,7 @@ module.exports = async (req, res) => {
     }
 
     // STAV MÍSTNOSTI
-    if (req.method === 'GET' && url.pathname === '/api/room') {
+    if (req.method === 'GET' && path === '/api/room') {
       const code     = (url.searchParams.get('room') || '').toUpperCase();
       const roomData = await fbReq(`rooms/${code}`);
       if (!roomData) return json(res, 404, { error: 'Místnost neexistuje' });
@@ -200,7 +198,7 @@ module.exports = async (req, res) => {
     }
 
     // PŘIPOJENÍ ŽÁKA
-    if (req.method === 'POST' && url.pathname === '/api/join') {
+    if (req.method === 'POST' && path === '/api/join') {
       const body     = await readJson(req);
       const code     = String(body.room || '').toUpperCase();
       const roomData = await fbReq(`rooms/${code}`);
@@ -217,7 +215,7 @@ module.exports = async (req, res) => {
     }
 
     // START HRY
-    if (req.method === 'POST' && url.pathname === '/api/start') {
+    if (req.method === 'POST' && path === '/api/start') {
       const body     = await readJson(req);
       const code     = String(body.room || '').toUpperCase();
       const roomData = await fbReq(`rooms/${code}`);
@@ -233,7 +231,7 @@ module.exports = async (req, res) => {
     }
 
     // PŘIČTENÍ SKÓRE
-    if (req.method === 'POST' && url.pathname === '/api/score') {
+    if (req.method === 'POST' && path === '/api/score') {
       const body       = await readJson(req);
       const code       = String(body.room || '').toUpperCase();
       const roomData   = await fbReq(`rooms/${code}`);
@@ -254,7 +252,7 @@ module.exports = async (req, res) => {
     }
 
     // KONEC HRY
-    if (req.method === 'POST' && url.pathname === '/api/finish') {
+    if (req.method === 'POST' && path === '/api/finish') {
       const body     = await readJson(req);
       const code     = String(body.room || '').toUpperCase();
       const roomData = await fbReq(`rooms/${code}`);
