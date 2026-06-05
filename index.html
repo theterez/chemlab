@@ -131,11 +131,65 @@
 
     let pollingInterval = null;
 
+    // ── localStorage: uložení / obnovení / smazání progressu žáka ─────────────
+    const LS_KEY = 'chemlab_progress';
+
+    function saveProgress() {
+      if (state.role !== 'player' || !state.sessionId) return;
+      const data = {
+        room:       state.room,
+        sessionId:  state.sessionId,
+        playerName: state.playerName,
+        score:      state.score,
+        savedAt:    Date.now(),
+      };
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
+    }
+
+    function loadProgress() {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        // Platný pouze 2 hodiny
+        if (Date.now() - data.savedAt > 2 * 60 * 60 * 1000) {
+          localStorage.removeItem(LS_KEY);
+          return null;
+        }
+        return data;
+      } catch { return null; }
+    }
+
+    function clearProgress() {
+      localStorage.removeItem(LS_KEY);
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
     // Načtení parametrů z URL adresy (pokud žák naskenoval QR)
     window.addEventListener('DOMContentLoaded', () => {
       const params = new URLSearchParams(window.location.search);
       const roomParam = params.get('room');
       const hostParam = params.get('host');
+
+      // Pokus o obnovení předchozího progressu žáka
+      const saved = loadProgress();
+      if (saved && !roomParam && !hostParam) {
+        const resume = confirm(`Pokračovat jako "${saved.playerName}" v místnosti ${saved.room}? (${saved.score} b)`);
+        if (resume) {
+          state.room       = saved.room;
+          state.sessionId  = saved.sessionId;
+          state.playerName = saved.playerName;
+          state.score      = saved.score;
+          state.role       = 'player';
+          state.multiplayer = true;
+          document.getElementById('gameScore').textContent = state.score;
+          startPolling();
+          showScreen('waitingScreen');
+          return;
+        } else {
+          clearProgress();
+        }
+      }
 
       if (roomParam) {
         document.getElementById('roomCodeInput').value = roomParam.toUpperCase();
@@ -221,6 +275,7 @@
         state.role = 'player';
         state.multiplayer = true;
         
+        saveProgress();
         startPolling();
         showScreen('waitingScreen');
       } catch (err) {
@@ -313,6 +368,7 @@
     async function simulateRightAnswer() {
       state.score += 20;
       document.getElementById('gameScore').textContent = state.score;
+      saveProgress();
 
       if (!state.multiplayer || !state.room || !state.sessionId) return;
       try {
@@ -332,6 +388,7 @@
 
     function resetApp() {
       if (pollingInterval) clearInterval(pollingInterval);
+      clearProgress();
       state.room = null;
       state.hostKey = null;
       state.sessionId = null;
