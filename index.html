@@ -240,13 +240,19 @@
         document.getElementById('joinUrl').textContent = data.joinUrl;
 
         // Vygenerování QR kódu rovnou na frontendu
-        QRCode.toDataURL(data.joinUrl, { width: 320, margin: 1 }, function (err, url) {
-          if (!err) {
-            document.getElementById('qrImage').src = url;
-          } else {
-            console.error(err);
-          }
-        });
+        try {
+          QRCode.toDataURL(data.joinUrl, { width: 320, margin: 1 }, function (err, url) {
+            if (err) {
+              alert('QR chyba: ' + err);
+            } else if (url) {
+              document.getElementById('qrImage').src = url;
+            } else {
+              alert('QR: funkce proběhla ale url je prázdná');
+            }
+          });
+        } catch (qrErr) {
+          alert('QRCode není dostupný: ' + qrErr.message);
+        }
 
         startPolling(); 
         showScreen('hostScreen');
