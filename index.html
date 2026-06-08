@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ChemLab Project</title>
   
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
   <style>
     :root {
       --bg: #0a0e1a;
@@ -14,6 +16,8 @@
       --text: #f8fafc;
       --text-muted: #94a3b8;
       --accent: #10b981;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -47,6 +51,8 @@
     button.secondary { background: #334155; }
     button.secondary:hover { background: #475569; }
     button.success { background: var(--accent); }
+    button.danger { background: var(--danger); }
+    button.danger:hover { background: var(--danger-hover); }
 
     .qr-container { background: white; padding: 15px; border-radius: 12px; display: inline-block; margin: 20px 0; }
     .qr-container img { display: block; max-width: 100%; height: auto; }
@@ -57,9 +63,18 @@
     .player-item { display: flex; justify-content: space-between; padding: 10px 15px; background: #1e294b; margin-bottom: 8px; border-radius: 6px; }
     .player-item .score { font-weight: bold; color: var(--accent); }
 
-    /* Herní plátno pro žáka */
-    #gameCanvas { background: #111827; border-radius: 12px; width: 100%; height: 250px; margin: 15px 0; border: 2px dashed #4b5563; position: relative; }
-    .canvas-placeholder { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--text-muted); pointer-events: none; }
+    /* Dynamické herní prvky pro stavění molekul */
+    #targetMolecule { font-size: 1.6rem; font-weight: bold; color: #facc15; margin-bottom: 10px; }
+    #gameCanvas { background: #111827; border-radius: 12px; width: 100%; min-height: 120px; margin: 15px 0; border: 2px dashed #4b5563; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; padding: 15px; gap: 8px; }
+    .canvas-placeholder { color: var(--text-muted); pointer-events: none; }
+    
+    .atom-built { background: var(--primary); color: white; padding: 10px 16px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; min-width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+    
+    .chem-controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; }
+    .btn-atom { background: #1e294b; border: 2px solid #334155; color: white; padding: 10px; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 1.1rem; }
+    .btn-atom:hover { background: #2e3b6e; border-color: var(--primary); }
+    
+    .action-controls { display: flex; gap: 10px; margin-bottom: 15px; }
   </style>
 </head>
 <body>
@@ -102,11 +117,25 @@
       <div>Čas: <span id="gameTimer" style="font-weight: bold; color: #ef4444;">--</span> s</div>
       <div>Moje skóre: <span id="gameScore" style="font-weight: bold; color: var(--accent);">0</span></div>
     </div>
+    
     <h1>Sestav molekulu</h1>
-    <div id="gameCanvas">
-      <div class="canvas-placeholder">Herní plátno (Simulace úkolu)</div>
+    <div id="targetMolecule">Načítání úkolu...</div>
+    
+    <div id="gameCanvas"></div>
+    
+    <div class="chem-controls">
+      <button class="btn-atom" onclick="addAtom('H')">H</button>
+      <button class="btn-atom" onclick="addAtom('O')">O</button>
+      <button class="btn-atom" onclick="addAtom('C')">C</button>
+      <button class="btn-atom" onclick="addAtom('N')">N</button>
     </div>
-    <button class="success" onclick="simulateRightAnswer()">Odeslat správnou molekulu (+20b)</button>
+
+    <div class="action-controls">
+      <button class="secondary" style="margin:0;" onclick="removeLastAtom()">↩ Smazat</button>
+      <button class="danger" style="margin:0;" onclick="clearCanvas()">🗑️ Reset</button>
+    </div>
+    
+    <button class="success" onclick="checkAndSubmitAnswer()">Odeslat správnou molekulu (+20b)</button>
   </div>
 
   <div id="leaderboardScreen" class="screen">
@@ -128,6 +157,76 @@
     };
 
     let pollingInterval = null;
+
+    // CHEMICKÝ ENGINE: Databáze podporovaných molekul a aktuální stav plátna
+    const MOLECULES_DB = [
+      { name: "Voda (H₂O)", formula: ["H", "H", "O"] },
+      { name: "Oxid uhličitý (CO₂)", formula: ["C", "O", "O"] },
+      { name: "Metan (CH₄)", formula: ["C", "H", "H", "H", "H"] },
+      { name: "Amoniak (NH₃)", formula: ["N", "H", "H", "H"] },
+      { name: "Kyslík (O₂)", formula: ["O", "O"] },
+      { name: "Dusík (N₂)", formula: ["N", "N"] }
+    ];
+    
+    let currentTask = null;
+    let builtFormula = [];
+
+    // Generování nové otázky
+    function generateNewTask() {
+      const randomIndex = Math.floor(Math.random() * MOLECULES_DB.length);
+      currentTask = MOLECULES_DB[randomIndex];
+      document.getElementById('targetMolecule').textContent = currentTask.name;
+      clearCanvas();
+    }
+
+    // Přidání atomu na plátno
+    function addAtom(element) {
+      builtFormula.push(element);
+      renderCanvas();
+    }
+
+    // Smazání posledního přidaného atomu
+    function removeLastAtom() {
+      builtFormula.pop();
+      renderCanvas();
+    }
+
+    // Úplné vyčištění plátna
+    function clearCanvas() {
+      builtFormula = [];
+      renderCanvas();
+    }
+
+    // Vykreslení atomů do vizuálního pole
+    function renderCanvas() {
+      const canvas = document.getElementById('gameCanvas');
+      if (builtFormula.length === 0) {
+        canvas.innerHTML = '<div class="canvas-placeholder">Klikáním na prvky níže sestav molekulu</div>';
+        return;
+      }
+      
+      canvas.innerHTML = builtFormula.map(atom => `<div class="atom-built">${atom}</div>`).join('');
+    }
+
+    // Kontrola správnosti a odeslání výsledku
+    function checkAndSubmitAnswer() {
+      if (!currentTask) return;
+
+      // Seřadíme pole abychom ignorovali pořadí, v jakém žák atomy naklikal
+      const currentSorted = [...builtFormula].sort();
+      const targetSorted = [...currentTask.formula].sort();
+
+      const isCorrect = currentSorted.length === targetSorted.length && 
+                        currentSorted.every((val, index) => val === targetSorted[index]);
+
+      if (isCorrect) {
+        alert('Správně! Získáváš 20 bodů. 🎉');
+        submitScoreDelta(20);
+        generateNewTask();
+      } else {
+        alert('Takhle tato molekula nevypadá, zkus to znovu! ❌');
+      }
+    }
 
     // ── localStorage: uložení / obnovení / smazání progressu žáka ─────────────
     const LS_KEY = 'chemlab_progress';
@@ -181,6 +280,7 @@
           state.role       = 'player';
           state.multiplayer = true;
           document.getElementById('gameScore').textContent = state.score;
+          generateNewTask();
           startPolling();
           showScreen('waitingScreen');
           return;
@@ -197,10 +297,6 @@
           state.hostKey = hostParam;
           state.role = 'host';
           state.room = roomParam.toUpperCase();
-          const joinUrl = `${location.origin}/?room=${state.room}`;
-          document.getElementById('roomCode').textContent = state.room;
-          document.getElementById('joinUrl').textContent = joinUrl;
-          document.getElementById('qrImage').src = `/api/qr?room=${encodeURIComponent(state.room)}&url=${encodeURIComponent(joinUrl)}`;
           startPolling();
           showScreen('hostScreen');
         }
@@ -229,7 +325,7 @@
     // 1. VYTVOŘENÍ MÍSTNOSTI (UČITEL)
     async function createRoom() {
       try {
-        const res = await fetch('/api/rooms', { method: 'POST' });
+        const res = await fetch('/api/server/rooms', { method: 'POST' });
         if (!res.ok) throw new Error('Selhalo vytvoření místnosti na serveru');
         const data = await res.json();
 
@@ -240,7 +336,21 @@
 
         document.getElementById('roomCode').textContent = data.room;
         document.getElementById('joinUrl').textContent = data.joinUrl;
-        document.getElementById('qrImage').src = data.qrUrl || `/api/qr?room=${encodeURIComponent(data.room)}&url=${encodeURIComponent(data.joinUrl)}`;
+
+        // Vygenerování QR kódu rovnou na frontendu
+        try {
+          QRCode.toDataURL(data.joinUrl, { width: 320, margin: 1 }, function (err, url) {
+            if (err) {
+              alert('QR chyba: ' + err);
+            } else if (url) {
+              document.getElementById('qrImage').src = url;
+            } else {
+              alert('QR: funkce proběhla ale url je prázdná');
+            }
+          });
+        } catch (qrErr) {
+          alert('QRCode není dostupný: ' + qrErr.message);
+        }
 
         startPolling(); 
         showScreen('hostScreen');
@@ -252,7 +362,7 @@
     // 2. PŘIPOJENÍ ŽÁKA DO MÍSTNOSTI
     async function joinRoom(name) {
       try {
-        const res = await fetch('/api/join', {
+        const res = await fetch('/api/server/join', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ room: state.room, name: name })
@@ -269,6 +379,7 @@
         state.role = 'player';
         state.multiplayer = true;
         
+        generateNewTask();
         saveProgress();
         startPolling();
         showScreen('waitingScreen');
@@ -288,7 +399,7 @@
       if (!state.room) return;
       
       try {
-        let url = `/api/room?room=${encodeURIComponent(state.room)}`;
+        let url = `/api/server/room?room=${encodeURIComponent(state.room)}`;
         if (state.role === 'host' && state.hostKey) {
           url += `&hostKey=${encodeURIComponent(state.hostKey)}`;
         }
@@ -347,7 +458,7 @@
     async function startGame() {
       if (!state.room || !state.hostKey) return;
       try {
-        await fetch('/api/start', {
+        await fetch('/api/server/start', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ room: state.room, hostKey: state.hostKey })
@@ -358,21 +469,21 @@
       }
     }
 
-    // 6. SIMULACE SPRÁVNÉ ODPOVĚDI (ŽÁK)
-    async function simulateRightAnswer() {
-      state.score += 20;
+    // 6. ODESLÁNÍ SKÓRE NA SERVER PO SPRÁVNÉ ODPOVĚDI
+    async function submitScoreDelta(delta) {
+      state.score += delta;
       document.getElementById('gameScore').textContent = state.score;
       saveProgress();
 
       if (!state.multiplayer || !state.room || !state.sessionId) return;
       try {
-        await fetch('/api/score', {
+        await fetch('/api/server/score', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             room: state.room,
             sessionId: state.sessionId,
-            delta: 20
+            delta: delta
           })
         });
       } catch (err) {
