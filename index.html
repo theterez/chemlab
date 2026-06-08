@@ -227,7 +227,7 @@
     // 1. VYTVOŘENÍ MÍSTNOSTI (UČITEL)
     async function createRoom() {
       try {
-        const res = await fetch('/api/server/rooms', { method: 'POST' });
+        const res = await fetch('/api/rooms', { method: 'POST' });
         if (!res.ok) throw new Error('Selhalo vytvoření místnosti na serveru');
         const data = await res.json();
 
@@ -264,7 +264,7 @@
     // 2. PŘIPOJENÍ ŽÁKA DO MÍSTNOSTI
     async function joinRoom(name) {
       try {
-        const res = await fetch('/api/server/join', {
+        const res = await fetch('/api/join', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ room: state.room, name: name })
@@ -300,7 +300,7 @@
       if (!state.room) return;
       
       try {
-        let url = `/api/server/room?room=${encodeURIComponent(state.room)}`;
+        let url = `/api/room?room=${encodeURIComponent(state.room)}`;
         if (state.role === 'host' && state.hostKey) {
           url += `&hostKey=${encodeURIComponent(state.hostKey)}`;
         }
@@ -359,7 +359,7 @@
     async function startGame() {
       if (!state.room || !state.hostKey) return;
       try {
-        await fetch('/api/server/start', {
+        await fetch('/api/start', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ room: state.room, hostKey: state.hostKey })
@@ -378,7 +378,7 @@
 
       if (!state.multiplayer || !state.room || !state.sessionId) return;
       try {
-        await fetch('/api/server/score', {
+        await fetch('/api/score', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
