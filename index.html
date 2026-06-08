@@ -1,507 +1,947 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ChemLab Project</title>
-  
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ChemLab App</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%2300ffff'/%3E%3Cstop offset='100%25' style='stop-color:%23ff00ff'/%3E%3C/linearGradient%3E%3CclipPath id='c'%3E%3Ctext x='50%25' y='50%25' font-size='80' text-anchor='middle' dominant-baseline='central'%3E⚗️%3C/text%3E%3C/clipPath%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)' clip-path='url(%23c)'/%3E%3C/svg%3E">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-  <style>
-    :root {
-      --bg: #0a0e1a;
-      --card-bg: #131a30;
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --text: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent: #10b981;
-      --danger: #ef4444;
-      --danger-hover: #dc2626;
-    }
+        :root {
+            --neon-cyan: #00ffff;
+            --neon-pink: #ff00ff;
+            --neon-green: #00ff88;
+            --dark-bg: #0a0e1a;
+            --glass-bg: rgba(21, 27, 46, 0.9);
+        }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
+        body {
+            font-family: 'Space Mono', monospace;
+            background: var(--dark-bg);
+            color: #fff;
+            min-height: 100vh;
+            touch-action: pan-y;
+            overflow-x: hidden;
+        }
 
-    .screen { display: none; width: 100%; max-width: 500px; background: var(--card-bg); padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); text-align: center; }
-    .screen.active { display: block; }
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at 30% 50%, rgba(0, 255, 255, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+        }
 
-    h1 { font-size: 2rem; margin-bottom: 20px; color: var(--text); }
-    h2 { font-size: 1.5rem; margin-bottom: 15px; color: var(--text-muted); }
-    
-    input {
-      width: 100%; padding: 14px; background: #1e294b; border: 2px solid #334155; border-radius: 8px; color: white; font-size: 1.1rem; margin-bottom: 15px; text-align: center; outline: none; transition: border-color 0.2s;
-    }
-    input:focus { border-color: var(--primary); }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 15px;
+        }
 
-    button {
-      width: 100%; padding: 14px; background: var(--primary); border: none; border-radius: 8px; color: white; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-bottom: 10px; transition: background 0.2s;
-    }
-    button:hover { background: var(--primary-hover); }
-    button.secondary { background: #334155; }
-    button.secondary:hover { background: #475569; }
-    button.success { background: var(--accent); }
-    button.danger { background: var(--danger); }
-    button.danger:hover { background: var(--danger-hover); }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
 
-    .qr-container { background: white; padding: 15px; border-radius: 12px; display: inline-block; margin: 20px 0; }
-    .qr-container img { display: block; max-width: 100%; height: auto; }
-    
-    .room-code-display { font-size: 3rem; font-weight: bold; letter-spacing: 4px; color: var(--primary); margin: 15px 0; }
-    
-    .player-list { text-align: left; margin: 20px 0; max-height: 250px; overflow-y: auto; }
-    .player-item { display: flex; justify-content: space-between; padding: 10px 15px; background: #1e294b; margin-bottom: 8px; border-radius: 6px; }
-    .player-item .score { font-weight: bold; color: var(--accent); }
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2rem, 8vw, 3.5rem);
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 3px;
+        }
 
-    /* Dynamické herní prvky pro stavění molekul */
-    #targetMolecule { font-size: 1.6rem; font-weight: bold; color: #facc15; margin-bottom: 10px; }
-    #gameCanvas { background: #111827; border-radius: 12px; width: 100%; min-height: 120px; margin: 15px 0; border: 2px dashed #4b5563; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; padding: 15px; gap: 8px; }
-    .canvas-placeholder { color: var(--text-muted); pointer-events: none; }
-    
-    .atom-built { background: var(--primary); color: white; padding: 10px 16px; border-radius: 50%; font-weight: bold; font-size: 1.2rem; min-width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
-    
-    .chem-controls { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; }
-    .btn-atom { background: #1e294b; border: 2px solid #334155; color: white; padding: 10px; font-weight: bold; border-radius: 8px; cursor: pointer; font-size: 1.1rem; }
-    .btn-atom:hover { background: #2e3b6e; border-color: var(--primary); }
-    
-    .action-controls { display: flex; gap: 10px; margin-bottom: 15px; }
-  </style>
+        .subtitle {
+            font-size: clamp(0.75rem, 3vw, 1rem);
+            color: var(--neon-cyan);
+            letter-spacing: 2px;
+            margin-top: 5px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            background: var(--glass-bg);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--neon-cyan);
+        }
+
+        .challenge {
+            background: linear-gradient(135deg, rgba(255, 0, 255, 0.15), rgba(0, 255, 255, 0.15));
+            border: 2px solid var(--neon-pink);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .challenge-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            color: var(--neon-pink);
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .challenge-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .atoms-palette {
+            background: var(--glass-bg);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .palette-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem;
+            color: var(--neon-cyan);
+            text-align: center;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
+        }
+
+        .atom-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+        }
+
+        .atom-btn {
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.1), rgba(0, 255, 255, 0.05));
+            border: 2px solid var(--neon-cyan);
+            border-radius: 10px;
+            padding: 15px 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            user-select: none;
+        }
+
+        .atom-btn.selected {
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.3), rgba(0, 255, 255, 0.2));
+            border-color: #fff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+            transform: scale(1.05);
+        }
+
+        .atom-btn:active {
+            transform: scale(0.95);
+        }
+
+        .atom-symbol {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .atom-name {
+            font-size: 0.7rem;
+            color: #aaa;
+        }
+
+        .canvas-container {
+            background: var(--glass-bg);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .canvas-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .canvas-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1rem;
+            color: var(--neon-green);
+            letter-spacing: 1px;
+        }
+
+        .debug-info {
+            font-size: 0.8rem;
+            color: var(--neon-green);
+            font-weight: 700;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            background: rgba(10, 14, 26, 0.5);
+            border: 2px dashed rgba(0, 255, 255, 0.3);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            font-family: 'Orbitron', sans-serif;
+            padding: 15px;
+            border: 2px solid;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-clear {
+            background: transparent;
+            color: var(--neon-pink);
+            border-color: var(--neon-pink);
+        }
+
+        .btn-clear:active {
+            background: var(--neon-pink);
+            color: #000;
+        }
+
+        .btn-analyze {
+            background: var(--neon-green);
+            color: #000;
+            border-color: var(--neon-green);
+            width: 100%;
+        }
+
+        .btn-analyze:active {
+            transform: scale(0.95);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink));
+            color: #000;
+            border: none;
+            width: 100%;
+            font-size: 1.1rem;
+            padding: 18px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+
+        .result {
+            background: linear-gradient(135deg, rgba(0, 255, 136, 0.15), rgba(0, 255, 255, 0.15));
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .result-icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .result-name { font-family: 'Orbitron', sans-serif; font-size: 1.6rem; font-weight: 900; color: var(--neon-green); margin-bottom: 8px; }
+
+        .hint {
+            background: rgba(255, 107, 53, 0.1);
+            border: 1px solid #ff6b35;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #ccc;
+        }
+
+        .hint-title {
+            font-family: 'Orbitron', sans-serif;
+            color: #ff6b35;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        /* Sekce pro přihlašování a učitelský panel */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        .input-box {
+            background: var(--glass-bg);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            max-width: 500px;
+            margin: 40px auto;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1.1rem;
+            font-family: inherit;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .room-code-display {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: var(--neon-cyan);
+            margin: 20px 0;
+            letter-spacing: 4px;
+        }
+
+        #qrcode {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            display: inline-block;
+            margin: 15px 0;
+        }
+
+        .player-list {
+            list-style: none;
+            margin: 20px 0;
+            text-align: left;
+            max-width: 400px;
+            margin: 20px auto;
+        }
+
+        .player-item {
+            background: rgba(255,255,255,0.05);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            border-left: 3px solid var(--neon-green);
+        }
+
+        @media (min-width: 768px) { .canvas-wrapper { height: 500px; } }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <header>
+            <h1>⚗️ CHEMLAB</h1>
+            <div class="subtitle" id="globalSubtitle">Molekula Builder</div>
+        </header>
 
-  <div id="menuScreen" class="screen active">
-    <h1>🧪 ChemLab Project</h1>
-    <input type="text" id="playerNameInput" placeholder="Zadej své jméno" maxlength="18">
-    <input type="text" id="roomCodeInput" placeholder="Kód místnosti (např. A1B2)" style="text-transform: uppercase;">
-    <button onclick="handleJoin()">Připojit se do hry</button>
-    <hr style="border: 0; border-top: 1px solid #334155; margin: 20px 0;">
-    <button class="secondary" onclick="createRoom()">Vytvořit hru (Učitel)</button>
-  </div>
+        <div id="view-auth" class="view-section active">
+            <div class="input-box">
+                <h2 style="font-family:'Orbitron'; margin-bottom:20px;">Vstup do laboratoře</h2>
+                <input type="text" id="joinName" placeholder="Zadej své jméno" maxlength="15">
+                <input type="text" id="joinRoom" placeholder="Kód místnosti (např. A1B2)" style="text-transform: uppercase;">
+                <button class="btn btn-analyze" id="btnJoinGame" style="margin-bottom: 15px;">🚀 Připojit se jako Žák</button>
+                <div style="margin: 15px 0; color: #666;">— nebo —</div>
+                <button class="btn btn-clear" id="btnCreateRoom" style="width: 100%;">👨‍🏫 Vytvořit místnost jako Učitel</button>
+            </div>
+        </div>
 
-  <div id="hostScreen" class="screen">
-    <h1>Místnost učitele</h1>
-    <p>Žáci se mohou připojit zadáním kódu nebo naskenováním QR:</p>
-    <div class="room-code-display" id="roomCode">------</div>
-    
-    <div class="qr-container">
-      <img id="qrImage" alt="QR kód pro připojení">
+        <div id="view-host" class="view-section">
+            <div class="input-box" style="max-width: 700px;">
+                <h2 style="font-family:'Orbitron';">Místnost učitele</h2>
+                <p style="color: #aaa; font-size:0.9rem; margin-top:5px;">Žáci se mohou připojit zadáním kódu nebo naskenováním QR:</p>
+                <div class="room-code-display" id="hostRoomCode">------</div>
+                <div id="qrcode"></div>
+                <div style="font-size: 0.8rem; color: var(--neon-cyan); margin-bottom: 20px;" id="hostUrlText"></div>
+                
+                <h3 style="font-family:'Orbitron'; margin-top: 20px;">Připojení žáci (<span id="playerCount">0</span>)</h3>
+                <ul class="player-list" id="hostPlayerList"></ul>
+
+                <button class="btn btn-primary" id="btnStartGame">🚀 Spustit hru všem</button>
+            </div>
+        </div>
+
+        <div id="view-wait" class="view-section">
+            <div class="input-box">
+                <h2 style="font-family:'Orbitron'; color: var(--neon-cyan);">Jsi v týmu!</h2>
+                <p style="margin: 20px 0; font-size: 1.1rem;">Počkej, až učitel spustí společnou vědeckou výzvu...</p>
+                <div style="font-size: 3rem;">🧪</div>
+            </div>
+        </div>
+
+        <div id="view-game" class="view-section">
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Čas</div>
+                    <div class="stat-value" id="gameTimer" style="color: var(--neon-pink);">90 s</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Moje skóre</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Úroveň</div>
+                    <div class="stat-value" id="level">1</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Série</div>
+                    <div class="stat-value" id="streak">0</div>
+                </div>
+            </div>
+
+            <div class="challenge">
+                <div class="challenge-label">🎯 ÚKOL</div>
+                <div class="challenge-text" id="challengeText">Načítám úkol...</div>
+            </div>
+
+            <div class="atoms-palette">
+                <div class="palette-title">⚛️ VYBER ATOM</div>
+                <div class="atom-grid">
+                    <div class="atom-btn selected" data-atom="H"><div class="atom-symbol">H</div><div class="atom-name">Vodík</div></div>
+                    <div class="atom-btn" data-atom="C"><div class="atom-symbol">C</div><div class="atom-name">Uhlík</div></div>
+                    <div class="atom-btn" data-atom="O"><div class="atom-symbol">O</div><div class="atom-name">Kyslík</div></div>
+                    <div class="atom-btn" data-atom="N"><div class="atom-symbol">N</div><div class="atom-name">Dusík</div></div>
+                    <div class="atom-btn" data-atom="Cl"><div class="atom-symbol">Cl</div><div class="atom-name">Chlór</div></div>
+                    <div class="atom-btn" data-atom="S"><div class="atom-symbol">S</div><div class="atom-name">Síra</div></div>
+                    <div class="atom-btn" data-atom="Na"><div class="atom-symbol">Na</div><div class="atom-name">Sodík</div></div>
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="canvas-header">
+                    <div class="canvas-title">🧪 PLÁTNO</div>
+                    <div class="debug-info" id="debugInfo">Atomů: 0 | Vazeb: 0</div>
+                </div>
+                <div class="canvas-wrapper">
+                    <canvas id="canvas"></canvas>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-clear" id="clearBtn">🗑️ Vymazat</button>
+                    <button class="btn btn-analyze" id="analyzeBtn">✓ Odeslat správnou molekulu (+20b)</button>
+                </div>
+            </div>
+
+            <div class="result" id="result">
+                <div class="result-icon">🔬</div>
+                <div style="color: rgba(255,255,255,0.4);">
+                    Klikni na atom → Tap na plátno k umístění<br>
+                    Atomy blízko sebe se propojí.
+                </div>
+            </div>
+
+            <div class="hint">
+                <div class="hint-title">💡 OVLÁDÁNÍ</div>
+                <strong>1.</strong> Vyber prvek v paletě nahoře.<br>
+                <strong>2.</strong> Kliknutím na plátno prvek položíš.<br>
+                <strong>3.</strong> Přiblížením dvou atomů k sobě je automaticky spojíš vazbou.<br>
+                <strong>4.</strong> Kliknutím na vazbu přepínáš mezi jednoduchou, dvojnou a trojnou.<br>
+                <strong>5.</strong> Dlouhým podržením nebo kliknutím pravým tlačítkem prvek smažeš.
+            </div>
+        </div>
     </div>
-    
-    <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 15px;" id="joinUrl">---</p>
-    
-    <h2>Připojení žáci (<span id="playerCount">0</span>)</h2>
-    <div class="player-list" id="hostPlayerList"></div>
-    
-    <button class="success" onclick="startGame()">🚀 Spustit hru všem</button>
-  </div>
 
-  <div id="waitingScreen" class="screen">
-    <h1>Jsi ve hře!</h1>
-    <p style="color: var(--text-muted); margin-bottom: 20px;">Počkej, až učitel spustí společnou hru...</p>
-    <h2>Ostatní v lobby:</h2>
-    <div class="player-list" id="waitingPlayerList"></div>
-  </div>
-
-  <div id="gameScreen" class="screen">
-    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-      <div>Čas: <span id="gameTimer" style="font-weight: bold; color: #ef4444;">--</span> s</div>
-      <div>Moje skóre: <span id="gameScore" style="font-weight: bold; color: var(--accent);">0</span></div>
-    </div>
-    
-    <h1>Sestav molekulu</h1>
-    <div id="targetMolecule">Načítání úkolu...</div>
-    
-    <div id="gameCanvas"></div>
-    
-    <div class="chem-controls">
-      <button class="btn-atom" onclick="addAtom('H')">H</button>
-      <button class="btn-atom" onclick="addAtom('O')">O</button>
-      <button class="btn-atom" onclick="addAtom('C')">C</button>
-      <button class="btn-atom" onclick="addAtom('N')">N</button>
-    </div>
-
-    <div class="action-controls">
-      <button class="secondary" style="margin:0;" onclick="removeLastAtom()">↩ Smazat</button>
-      <button class="danger" style="margin:0;" onclick="clearCanvas()">🗑️ Reset</button>
-    </div>
-    
-    <button class="success" onclick="checkAndSubmitAnswer()">Odeslat správnou molekulu (+20b)</button>
-  </div>
-
-  <div id="leaderboardScreen" class="screen">
-    <h1>🏆 Výsledky hry</h1>
-    <div class="player-list" id="finalPlayerList"></div>
-    <button onclick="resetApp()">Zpět na hlavní menu</button>
-  </div>
-
-  <script>
-    // GLOBÁLNÍ STAV HRY
-    const state = {
-      room: null,
-      hostKey: null,
-      sessionId: null,
-      playerName: '',
-      role: 'player', // 'player' | 'host'
-      multiplayer: false,
-      score: 0
-    };
-
-    let pollingInterval = null;
-
-    // CHEMICKÝ ENGINE: Databáze podporovaných molekul a aktuální stav plátna
-    const MOLECULES_DB = [
-      { name: "Voda (H₂O)", formula: ["H", "H", "O"] },
-      { name: "Oxid uhličitý (CO₂)", formula: ["C", "O", "O"] },
-      { name: "Metan (CH₄)", formula: ["C", "H", "H", "H", "H"] },
-      { name: "Amoniak (NH₃)", formula: ["N", "H", "H", "H"] },
-      { name: "Kyslík (O₂)", formula: ["O", "O"] },
-      { name: "Dusík (N₂)", formula: ["N", "N"] }
-    ];
-    
-    let currentTask = null;
-    let builtFormula = [];
-
-    // Generování nové otázky
-    function generateNewTask() {
-      const randomIndex = Math.floor(Math.random() * MOLECULES_DB.length);
-      currentTask = MOLECULES_DB[randomIndex];
-      document.getElementById('targetMolecule').textContent = currentTask.name;
-      clearCanvas();
-    }
-
-    // Přidání atomu na plátno
-    function addAtom(element) {
-      builtFormula.push(element);
-      renderCanvas();
-    }
-
-    // Smazání posledního přidaného atomu
-    function removeLastAtom() {
-      builtFormula.pop();
-      renderCanvas();
-    }
-
-    // Úplné vyčištění plátna
-    function clearCanvas() {
-      builtFormula = [];
-      renderCanvas();
-    }
-
-    // Vykreslení atomů do vizuálního pole
-    function renderCanvas() {
-      const canvas = document.getElementById('gameCanvas');
-      if (builtFormula.length === 0) {
-        canvas.innerHTML = '<div class="canvas-placeholder">Klikáním na prvky níže sestav molekulu</div>';
-        return;
-      }
-      
-      canvas.innerHTML = builtFormula.map(atom => `<div class="atom-built">${atom}</div>`).join('');
-    }
-
-    // Kontrola správnosti a odeslání výsledku
-    function checkAndSubmitAnswer() {
-      if (!currentTask) return;
-
-      // Seřadíme pole abychom ignorovali pořadí, v jakém žák atomy naklikal
-      const currentSorted = [...builtFormula].sort();
-      const targetSorted = [...currentTask.formula].sort();
-
-      const isCorrect = currentSorted.length === targetSorted.length && 
-                        currentSorted.every((val, index) => val === targetSorted[index]);
-
-      if (isCorrect) {
-        alert('Správně! Získáváš 20 bodů. 🎉');
-        submitScoreDelta(20);
-        generateNewTask();
-      } else {
-        alert('Takhle tato molekula nevypadá, zkus to znovu! ❌');
-      }
-    }
-
-    // ── localStorage: uložení / obnovení / smazání progressu žáka ─────────────
-    const LS_KEY = 'chemlab_progress';
-
-    function saveProgress() {
-      if (state.role !== 'player' || !state.sessionId) return;
-      const data = {
-        room:       state.room,
-        sessionId:  state.sessionId,
-        playerName: state.playerName,
-        score:      state.score,
-        savedAt:    Date.now(),
-      };
-      localStorage.setItem(LS_KEY, JSON.stringify(data));
-    }
-
-    function loadProgress() {
-      try {
-        const raw = localStorage.getItem(LS_KEY);
-        if (!raw) return null;
-        const data = JSON.parse(raw);
-        // Platný pouze 2 hodiny
-        if (Date.now() - data.savedAt > 2 * 60 * 60 * 1000) {
-          localStorage.removeItem(LS_KEY);
-          return null;
+    <script>
+        // MANAŽER OBRAZOVEK
+        function showView(viewId) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
         }
-        return data;
-      } catch { return null; }
-    }
 
-    function clearProgress() {
-      localStorage.removeItem(LS_KEY);
-    }
-    // ──────────────────────────────────────────────────────────────────────────
+        // DATABÁZE CHEMICKEJCH MOLEKUL
+        const MOLECULES = {
+            'H2O': { name: 'VODA', formula: 'H₂O', points: 20, structure: { 'O': [['H', 1], ['H', 1]] } },
+            'O2': { name: 'KYSLÍK', formula: 'O₂', points: 20, structure: { 'O': [['O', 2]] } },
+            'CO2': { name: 'OXID UHLIČITÝ', formula: 'CO₂', points: 20, structure: { 'C': [['O', 2], ['O', 2]] } },
+            'CH4': { name: 'METHAN', formula: 'CH₄', points: 20, structure: { 'C': [['H', 1], ['H', 1], ['H', 1], ['H', 1]] } },
+            'NH3': { name: 'AMONIAK', formula: 'NH₃', points: 20, structure: { 'N': [['H', 1], ['H', 1], ['H', 1]] } },
+            'HCl': { name: 'CHLOROVODÍK', formula: 'HCl', points: 20, structure: { 'H': [['Cl', 1]] } },
+            'N2': { name: 'DUSÍK', formula: 'N₂', points: 20, structure: { 'N': [['N', 3]] } }
+        };
 
-    // Načtení parametrů z URL adresy (pokud žák naskenoval QR)
-    window.addEventListener('DOMContentLoaded', () => {
-      const params = new URLSearchParams(window.location.search);
-      const roomParam = params.get('room');
-      const hostParam = params.get('host');
+        const MOLECULE_KEYS = Object.keys(MOLECULES);
 
-      // Pokus o obnovení předchozího progressu žáka
-      const saved = loadProgress();
-      if (saved && !roomParam && !hostParam) {
-        const resume = confirm(`Pokračovat jako "${saved.playerName}" v místnosti ${saved.room}? (${saved.score} b)`);
-        if (resume) {
-          state.room       = saved.room;
-          state.sessionId  = saved.sessionId;
-          state.playerName = saved.playerName;
-          state.score      = saved.score;
-          state.role       = 'player';
-          state.multiplayer = true;
-          document.getElementById('gameScore').textContent = state.score;
-          generateNewTask();
-          startPolling();
-          showScreen('waitingScreen');
-          return;
-        } else {
-          clearProgress();
-        }
-      }
+        // GLOBÁLNÍ STAV KLIENTA
+        let roomCode = '';
+        let hostKey = '';
+        let sessionId = '';
+        let pollingInterval = null;
+        let countdownInterval = null;
 
-      if (roomParam) {
-        document.getElementById('roomCodeInput').value = roomParam.toUpperCase();
-        state.room = roomParam.toUpperCase();
-        
-        if (hostParam) {
-          state.hostKey = hostParam;
-          state.role = 'host';
-          state.room = roomParam.toUpperCase();
-          startPolling();
-          showScreen('hostScreen');
-        }
-      }
-    });
+        let state = {
+            score: 0,
+            level: 1,
+            streak: 0,
+            currentChallenge: null,
+            selectedAtom: 'H',
+            atoms: [],
+            bonds: [],
+            draggedAtom: null,
+            dragOffset: { x: 0, y: 0 }
+        };
 
-    function showScreen(screenId) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(screenId).classList.add('active');
-    }
+        // VYTVOŘENÍ MÍSTNOSTI UČITELEM
+        document.getElementById('btnCreateRoom').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/rooms', { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Nepodařilo se vytvořit místnost');
 
-    // TLAČÍTKO PŘIPOJIT SE (ŽÁK)
-    function handleJoin() {
-      const name = document.getElementById('playerNameInput').value.trim();
-      const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+                roomCode = data.room;
+                hostKey = data.hostKey;
 
-      if (!name || !code) {
-        alert('Vyplň své jméno a kód místnosti!');
-        return;
-      }
+                document.getElementById('hostRoomCode').textContent = roomCode;
+                document.getElementById('hostUrlText').textContent = data.joinUrl;
+                document.getElementById('globalSubtitle').textContent = `Učitel (Místnost: ${roomCode})`;
 
-      state.room = code;
-      joinRoom(name);
-    }
+                // Generování QR kódu bezpečně přes staženou knihovnu
+                document.getElementById('qrcode').innerHTML = '';
+                new QRCode(document.getElementById('qrcode'), {
+                    text: data.joinUrl,
+                    width: 180,
+                    height: 180,
+                    colorDark : "#0a0e1a",
+                    colorLight : "#ffffff"
+                });
 
-    // 1. VYTVOŘENÍ MÍSTNOSTI (UČITEL)
-    async function createRoom() {
-      try {
-        const res = await fetch('/api/server/rooms', { method: 'POST' });
-        if (!res.ok) throw new Error('Selhalo vytvoření místnosti na serveru');
-        const data = await res.json();
-
-        state.room = data.room;
-        state.hostKey = data.hostKey;
-        state.role = 'host';
-        state.multiplayer = true;
-
-        document.getElementById('roomCode').textContent = data.room;
-        document.getElementById('joinUrl').textContent = data.joinUrl;
-
-        // Vygenerování QR kódu rovnou na frontendu
-        try {
-          QRCode.toDataURL(data.joinUrl, { width: 320, margin: 1 }, function (err, url) {
-            if (err) {
-              alert('QR chyba: ' + err);
-            } else if (url) {
-              document.getElementById('qrImage').src = url;
-            } else {
-              alert('QR: funkce proběhla ale url je prázdná');
+                showView('view-host');
+                startHostPolling();
+            } catch (err) {
+                alert('Chyba při zakládání: ' + err.message);
             }
-          });
-        } catch (qrErr) {
-          alert('QRCode není dostupný: ' + qrErr.message);
-        }
-
-        startPolling(); 
-        showScreen('hostScreen');
-      } catch (err) {
-        alert('Chyba serveru: ' + err.message);
-      }
-    }
-
-    // 2. PŘIPOJENÍ ŽÁKA DO MÍSTNOSTI
-    async function joinRoom(name) {
-      try {
-        const res = await fetch('/api/server/join', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ room: state.room, name: name })
         });
-        
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error || 'Nepodařilo se připojit');
-        }
-        
-        const data = await res.json();
-        state.sessionId = data.sessionId;
-        state.playerName = name;
-        state.role = 'player';
-        state.multiplayer = true;
-        
-        generateNewTask();
-        saveProgress();
-        startPolling();
-        showScreen('waitingScreen');
-      } catch (err) {
-        alert(err.message);
-      }
-    }
 
-    // 3. START POLLINGU (Dotazování Vercelu každých 1.5 vteřiny)
-    function startPolling() {
-      if (pollingInterval) clearInterval(pollingInterval);
-      fetchRoomStatus();
-      pollingInterval = setInterval(fetchRoomStatus, 1500);
-    }
+        // PŘIPOJENÍ ŽÁKA DO MÍSTNOSTI
+        document.getElementById('btnJoinGame').addEventListener('click', async () => {
+            const name = document.getElementById('joinName').value.trim();
+            const code = document.getElementById('joinRoom').value.trim().toUpperCase();
 
-    async function fetchRoomStatus() {
-      if (!state.room) return;
-      
-      try {
-        let url = `/api/server/room?room=${encodeURIComponent(state.room)}`;
-        if (state.role === 'host' && state.hostKey) {
-          url += `&hostKey=${encodeURIComponent(state.hostKey)}`;
-        }
-        
-        const res = await fetch(url);
-        if (!res.ok) return;
-        
-        const snapshotData = await res.json();
-        applyRoomSnapshot(snapshotData);
-      } catch (e) {
-        console.error("Chyba synchronizace dat:", e);
-      }
-    }
+            if (!name || !code) {
+                alert('Vyplň své jméno i kód místnosti!');
+                return;
+            }
 
-    // 4. APLIKACE DAT ZE SERVERU DO UI
-    function applyRoomSnapshot(snapshot) {
-      // Synchronizace časovače a stavu obrazovek
-      if (state.role === 'player') {
-        if (snapshot.status === 'running' && document.getElementById('waitingScreen').classList.contains('active')) {
-          showScreen('gameScreen');
-        }
-        if (snapshot.status === 'finished' && !document.getElementById('leaderboardScreen').classList.contains('active')) {
-          clearInterval(pollingInterval);
-          showScreen('leaderboardScreen');
-        }
-      } else if (state.role === 'host') {
-        if (snapshot.status === 'finished' && !document.getElementById('leaderboardScreen').classList.contains('active')) {
-          clearInterval(pollingInterval);
-          showScreen('leaderboardScreen');
-        }
-      }
+            try {
+                const res = await fetch('/api/join', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room: code, name: name })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Nelze se připojit');
 
-      document.getElementById('gameTimer').textContent = snapshot.timeLeft;
+                roomCode = code;
+                sessionId = data.sessionId;
+                document.getElementById('globalSubtitle').textContent = `Žák: ${name} (Místnost: ${roomCode})`;
 
-      // Aktualizace seznamů hráčů
-      updatePlayerLists(snapshot.players);
-    }
-
-    function updatePlayerLists(players) {
-      document.getElementById('playerCount').textContent = players.length;
-      
-      let html = '';
-      players.forEach((p, index) => {
-        html += `<div class="player-item">
-          <span>${index + 1}. ${p.name}</span>
-          <span class="score">${p.score} b</span>
-        </div>`;
-      });
-
-      document.getElementById('hostPlayerList').innerHTML = html;
-      document.getElementById('waitingPlayerList').innerHTML = html;
-      document.getElementById('finalPlayerList').innerHTML = html;
-    }
-
-    // 5. START HRY UČITELEM
-    async function startGame() {
-      if (!state.room || !state.hostKey) return;
-      try {
-        await fetch('/api/server/start', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ room: state.room, hostKey: state.hostKey })
+                showView('view-wait');
+                startPlayerPolling();
+            } catch (err) {
+                alert('Chyba při připojování: ' + err.message);
+            }
         });
-        showScreen('gameScreen'); // Přepne i učitele na sledování hry
-      } catch (err) {
-        console.error(err);
-      }
-    }
 
-    // 6. ODESLÁNÍ SKÓRE NA SERVER PO SPRÁVNÉ ODPOVĚDI
-    async function submitScoreDelta(delta) {
-      state.score += delta;
-      document.getElementById('gameScore').textContent = state.score;
-      saveProgress();
-
-      if (!state.multiplayer || !state.room || !state.sessionId) return;
-      try {
-        await fetch('/api/server/score', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            room: state.room,
-            sessionId: state.sessionId,
-            delta: delta
-          })
+        // UČITEL SPUSTÍ HRU PRO VŠECHNY
+        document.getElementById('btnStartGame').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room: roomCode, hostKey: hostKey })
+                });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || 'Hru nelze odstartovat');
+                }
+                alert('Hra byla úspěšně spuštěna!');
+            } catch (err) {
+                alert('Chyba startu: ' + err.message);
+            }
         });
-      } catch (err) {
-        console.error("Chyba odesílání skóre:", err);
-      }
-    }
 
-    function resetApp() {
-      if (pollingInterval) clearInterval(pollingInterval);
-      clearProgress();
-      state.room = null;
-      state.hostKey = null;
-      state.sessionId = null;
-      state.score = 0;
-      document.getElementById('gameScore').textContent = '0';
-      window.history.pushState({}, document.title, "/");
-      showScreen('menuScreen');
-    }
-  </script>
+        // POLLING PRO UČITELE (Sleduje seznam žáků)
+        function startHostPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/room?room=${roomCode}&hostKey=${hostKey}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+
+                    const listEl = document.getElementById('hostPlayerList');
+                    listEl.innerHTML = '';
+                    document.getElementById('playerCount').textContent = data.players.length;
+
+                    data.players.forEach(p => {
+                        const li = document.createElement('li');
+                        li.className = 'player-item';
+                        li.innerHTML = `<span>👤 ${p.name}</span> <strong>${p.score} b</strong>`;
+                        listEl.appendChild(li);
+                    });
+                } catch (e) { console.error(e); }
+            }, 2000);
+        }
+
+        // POLLING PRO ŽÁKA (Čeká na odstartování hry a aktualizuje časovač)
+        function startPlayerPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/room?room=${roomCode}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+
+                    if (data.status === 'running') {
+                        if (document.getElementById('view-wait').classList.contains('active')) {
+                            // Právě se odstartovalo!
+                            showView('view-game');
+                            nextChallenge();
+                            resizeCanvas();
+                        }
+                        document.getElementById('gameTimer').textContent = `${data.timeLeft} s`;
+                    } else if (data.status === 'finished') {
+                        clearInterval(pollingInterval);
+                        alert(`Hra skončila! Tvoje konečné skóre je ${state.score} bodů.`);
+                        location.reload();
+                    }
+                } catch (e) { console.error(e); }
+            }, 1500);
+        }
+
+        // GENERÁTOR NOVÉHO ÚKOLU PRO ŽÁKA
+        function nextChallenge() {
+            const randomKey = MOLECULE_KEYS[Math.floor(Math.random() * MOLECULE_KEYS.length)];
+            const targetMol = MOLECULES[randomKey];
+            state.currentChallenge = randomKey;
+            document.getElementById('challengeText').textContent = `Vytvoř molekulu: ${targetMol.name} (${targetMol.formula})`;
+            
+            // Vymazat plátno pro nový úkol
+            state.atoms = [];
+            state.bonds = [];
+            draw();
+        }
+
+        // --- INTERAKTIVNÍ CHEMICKÉ PLÁTNO (CANVAS) ---
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const wrapper = canvas.parentElement;
+
+        function resizeCanvas() {
+            const rect = wrapper.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            draw();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Výběr atomu z palety
+        document.querySelectorAll('.atom-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.atom-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                state.selectedAtom = btn.dataset.atom;
+            });
+        });
+
+        let longPressTimer = null;
+        let isDragging = false;
+        let hasMoved = false;
+
+        function getPointerPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+            }
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function onPointerDown(e) {
+            const pos = getPointerPos(e);
+            hasMoved = false;
+            const atomIdx = findAtomAt(pos.x, pos.y);
+
+            if (atomIdx !== null) {
+                isDragging = true;
+                state.draggedAtom = atomIdx;
+                state.dragOffset = { x: pos.x - state.atoms[atomIdx].x, y: pos.y - state.atoms[atomIdx].y };
+
+                longPressTimer = setTimeout(() => {
+                    if (!hasMoved) {
+                        removeAtom(atomIdx);
+                        isDragging = false;
+                        state.draggedAtom = null;
+                    }
+                }, 600);
+            }
+        }
+
+        function onPointerMove(e) {
+            hasMoved = true;
+            if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+
+            if (isDragging && state.draggedAtom !== null) {
+                const pos = getPointerPos(e);
+                state.atoms[state.draggedAtom].x = pos.x - state.dragOffset.x;
+                state.atoms[state.draggedAtom].y = pos.y - state.dragOffset.y;
+                updateAutoBonds();
+                draw();
+            }
+        }
+
+        function onPointerUp(e) {
+            if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+
+            if (isDragging) {
+                isDragging = false;
+                state.draggedAtom = null;
+                return;
+            }
+
+            const pos = getPointerPos(e);
+            const bondIdx = findBondAt(pos.x, pos.y);
+            if (bondIdx !== null) {
+                cycleBondType(bondIdx);
+                return;
+            }
+
+            const atomIdx = findAtomAt(pos.x, pos.y);
+            if (atomIdx !== null) return;
+
+            // Přidání nového atomu na plátno
+            if (pos.x >= 0 && pos.y >= 0 && pos.x <= canvas.width && pos.y <= canvas.height) {
+                addAtom(pos.x, pos.y, state.selectedAtom);
+            }
+        }
+
+        canvas.addEventListener('mousedown', onPointerDown);
+        canvas.addEventListener('mousemove', onPointerMove);
+        canvas.addEventListener('mouseup', onPointerUp);
+
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); onPointerDown(e); });
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); onPointerMove(e); });
+        canvas.addEventListener('touchend', e => { e.preventDefault(); onPointerUp(e); });
+
+        function addAtom(x, y, symbol) {
+            state.atoms.push({ symbol, x, y });
+            updateAutoBonds();
+            draw();
+        }
+
+        function removeAtom(idx) {
+            state.bonds = state.bonds.filter(b => b.start !== idx && b.end !== idx);
+            state.bonds.forEach(b => {
+                if (b.start > idx) b.start--;
+                if (b.end > idx) b.end--;
+            });
+            state.atoms.splice(idx, 1);
+            draw();
+        }
+
+        function updateAutoBonds() {
+            const DIST = 90;
+            state.bonds = state.bonds.filter(b => b.manual);
+
+            for (let i = 0; i < state.atoms.length; i++) {
+                for (let j = i + 1; j < state.atoms.length; j++) {
+                    const a1 = state.atoms[i];
+                    const a2 = state.atoms[j];
+                    const dist = Math.sqrt((a2.x - a1.x) ** 2 + (a2.y - a1.y) ** 2);
+
+                    if (dist < DIST) {
+                        const exists = state.bonds.some(b => (b.start === i && b.end === j) || (b.start === j && b.end === i));
+                        if (!exists) {
+                            state.bonds.push({ start: i, end: j, type: 1, manual: false });
+                        }
+                    }
+                }
+            }
+        }
+
+        function cycleBondType(idx) {
+            const bond = state.bonds[idx];
+            bond.type = bond.type === 3 ? 1 : bond.type + 1;
+            bond.manual = true;
+            draw();
+        }
+
+        function findAtomAt(x, y) {
+            for (let i = 0; i < state.atoms.length; i++) {
+                const a = state.atoms[i];
+                if (Math.sqrt((x - a.x) ** 2 + (y - a.y) ** 2) < 30) return i;
+            }
+            return null;
+        }
+
+        function findBondAt(x, y) {
+            for (let i = 0; i < state.bonds.length; i++) {
+                const b = state.bonds[i];
+                const a1 = state.atoms[b.start];
+                const a2 = state.atoms[b.end];
+                if (distToLine(x, y, a1.x, a1.y, a2.x, a2.y) < 15) return i;
+            }
+            return null;
+        }
+
+        function distToLine(px, py, x1, y1, x2, y2) {
+            const dx = x2 - x1, dy = y2 - y1;
+            const lenSq = dx * dx + dy * dy;
+            let param = lenSq === 0 ? -1 : ((px - x1) * dx + (py - y1) * dy) / lenSq;
+            param = Math.max(0, Math.min(1, param));
+            return Math.sqrt((px - (x1 + param * dx)) ** 2 + (py - (y1 + param * dy)) ** 2);
+        }
+
+        // RENDER VAZEB A ATOMŮ NA CANVAS
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            state.bonds.forEach(b => {
+                const a1 = state.atoms[b.start];
+                const a2 = state.atoms[b.end];
+                ctx.strokeStyle = b.manual ? '#ff00ff' : '#00ffff';
+                ctx.lineWidth = 4;
+                
+                if (b.type === 1) {
+                    ctx.beginPath(); ctx.moveTo(a1.x, a1.y); ctx.lineTo(a2.x, a2.y); ctx.stroke();
+                } else if (b.type === 2) {
+                    const angle = Math.atan2(a2.y - a1.y, a2.x - a1.x);
+                    const dx = Math.sin(angle) * 5, dy = -Math.cos(angle) * 5;
+                    ctx.beginPath(); ctx.moveTo(a1.x + dx, a1.y + dy); ctx.lineTo(a2.x + dx, a2.y + dy); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(a1.x - dx, a1.y - dy); ctx.lineTo(a2.x - dx, a2.y - dy); ctx.stroke();
+                } else {
+                    ctx.beginPath(); ctx.moveTo(a1.x, a1.y); ctx.lineTo(a2.x, a2.y); ctx.stroke();
+                }
+            });
+
+            state.atoms.forEach(a => {
+                ctx.fillStyle = 'rgba(21, 27, 46, 0.95)';
+                ctx.beginPath(); ctx.arc(a.x, a.y, 25, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 2; ctx.stroke();
+
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Orbitron';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(a.symbol, a.x, a.y);
+            });
+
+            document.getElementById('debugInfo').textContent = `Atomů: ${state.atoms.length} | Vazeb: ${state.bonds.length}`;
+        }
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            state.atoms = []; state.bonds = []; draw();
+        });
+
+        // KONTROLA A VYHODNOCENÍ SLOŽENÉ MOLEKULY
+        document.getElementById('analyzeBtn').addEventListener('click', async () => {
+            if (state.atoms.length === 0) {
+                alert('❌ Nejprve polož nějaké atomy!');
+                return;
+            }
+
+            const targetKey = state.currentChallenge;
+            const targetStructure = MOLECULES[targetKey].structure;
+
+            // Jednoduchá kontrola počtu atomů
+            const counts = {};
+            state.atoms.forEach(a => counts[a.symbol] = (counts[a.symbol] || 0) + 1);
+
+            const expectedCounts = {};
+            targetKey.match(/([A-Z][a-z]?)(\d*)/g).forEach(m => {
+                const [, sym, num] = m.match(/([A-Z][a-z]?)(\d*)/);
+                expectedCounts[sym] = num ? parseInt(num) : 1;
+            });
+
+            let isCorrect = JSON.stringify(counts) === JSON.stringify(expectedCounts);
+
+            if (isCorrect) {
+                // ÚSPĚCH -> Přičtení bodů na server
+                try {
+                    const res = await fetch('/api/score', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room: roomCode, sessionId: sessionId, delta: 20 })
+                    });
+                    
+                    if (res.ok) {
+                        state.score += 20;
+                        state.streak += 1;
+                        state.level = Math.floor(state.score / 60) + 1;
+
+                        document.getElementById('score').textContent = state.score;
+                        document.getElementById('streak').textContent = state.streak;
+                        document.getElementById('level').textContent = state.level;
+
+                        document.getElementById('result').innerHTML = `
+                            <div class="result-icon">🎉</div>
+                            <div class="result-name" style="color:var(--neon-green);">VÝBORNĚ!</div>
+                            <div style="font-size:0.9rem;">Molekula byla správně odeslána na server!</div>
+                        `;
+
+                        setTimeout(() => {
+                            nextChallenge();
+                        }, 2000);
+                    }
+                } catch (e) { alert('Chyba při odesílání skóre.'); }
+            } else {
+                state.streak = 0;
+                document.getElementById('streak').textContent = "0";
+                document.getElementById('result').innerHTML = `
+                    <div class="result-icon">❌</div>
+                    <div class="result-name" style="color:var(--neon-pink);">NESPRÁVNĚ</div>
+                    <div style="font-size:0.9rem;">Zkontroluj vzorec a zkus to znovu.</div>
+                `;
+            }
+        });
+    </script>
 </body>
 </html>
