@@ -1,5 +1,6 @@
 // api/server.js
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 
 const REQUIRED_ENV = [
   'FIREBASE_PROJECT_ID',
@@ -170,6 +171,30 @@ module.exports = async (req, res) => {
       return json(res, 200, { ok: true });
     }
 
+    if (req.method === 'GET' && path === '/api/qr') {
+      const code = (url.searchParams.get('room') || '').toUpperCase();
+      const roomData = await fbReq(`rooms/${code}`);
+      if (!roomData) {
+        res.writeHead(404);
+        res.end('Místnost neexistuje');
+        return;
+      }
+
+      const target = url.searchParams.get('url') || `https://${host}/?room=${code}`;
+      const svg = await QRCode.toString(target, {
+        type: 'svg',
+        margin: 1,
+        width: 320,
+        color: { dark: '#0f172a', light: '#ffffff' },
+      });
+      res.writeHead(200, {
+        'content-type': 'image/svg+xml; charset=utf-8',
+        'cache-control': 'no-store',
+      });
+      res.end(svg);
+      return;
+    }
+
     // VYTVOŘENÍ MÍSTNOSTI
     if (req.method === 'POST' && path === '/api/rooms') {
       const code        = roomCode();
@@ -185,6 +210,7 @@ module.exports = async (req, res) => {
         room: code, hostKey: roomHostKey,
         joinUrl: `${origin}/?room=${code}`,
         hostUrl: `${origin}/?host=${roomHostKey}&room=${code}`,
+        qrUrl: `/api/qr?room=${code}&url=${encodeURIComponent(`${origin}/?room=${code}`)}`,
       });
     }
 
