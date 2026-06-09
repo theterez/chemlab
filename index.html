@@ -380,14 +380,6 @@
         @media (min-width: 768px) { .canvas-wrapper { height: 500px; } }
     </style>
 </head>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-P99LN0XXE8"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'G-P99LN0XXE8');
-</script>
 <body>
     <div class="container">
         <header>
@@ -707,11 +699,25 @@
         let isDragging = false;
         let hasMoved = false;
 
+        // UKLÁDÁNÍ SOUŘADNIC BEZPEČNĚ PRO MYŠ I MOBILNÍ DOTYKY (VČETNĚ UNIKÁTNÍHO TOUCHENDU)
         function getPointerPos(e) {
             const rect = canvas.getBoundingClientRect();
-            if (e.touches && e.touches.length > 0) {
-                return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+            
+            // Pro touchend/touchcancel eventy, kde prst už opustil plochu
+            if (e.changedTouches && e.changedTouches.length > 0) {
+                return {
+                    x: e.changedTouches[0].clientX - rect.left,
+                    y: e.changedTouches[0].clientY - rect.top
+                };
             }
+            // Pro standardní touchstart a touchmove eventy
+            if (e.touches && e.touches.length > 0) {
+                return {
+                    x: e.touches[0].clientX - rect.left,
+                    y: e.touches[0].clientY - rect.top
+                };
+            }
+            // Klasický fallback pro myš na PC
             return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
 
@@ -736,11 +742,22 @@
         }
 
         function onPointerMove(e) {
-            hasMoved = true;
+            // Určíme, jestli se prst/myš posunula o víc než malý kousek (tolerance proti chvění prstu)
+            const pos = getPointerPos(e);
+            if (isDragging && state.draggedAtom !== null) {
+                const origAtom = state.atoms[state.draggedAtom];
+                const dx = Math.abs((pos.x - state.dragOffset.x) - origAtom.x);
+                const dy = Math.abs((pos.y - state.dragOffset.y) - origAtom.y);
+                if (dx > 3 || dy > 3) {
+                    hasMoved = true;
+                }
+            } else {
+                hasMoved = true;
+            }
+
             if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 
             if (isDragging && state.draggedAtom !== null) {
-                const pos = getPointerPos(e);
                 state.atoms[state.draggedAtom].x = pos.x - state.dragOffset.x;
                 state.atoms[state.draggedAtom].y = pos.y - state.dragOffset.y;
                 updateAutoBonds();
@@ -748,17 +765,18 @@
             }
         }
 
-        // OPRAVA PRO MOBILNÍ TELEFONY: Sjednocený spolehlivý výpočet pozice dotyku/kliknutí
         function onPointerUp(e) {
             if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 
             if (isDragging) {
                 isDragging = false;
                 state.draggedAtom = null;
-                hasMoved = false;
+                // hasMoved se vynuluje až po zpracování
+                setTimeout(() => { hasMoved = false; }, 20);
                 return;
             }
 
+            // Pokud uživatel během držení prstu posouval obrazovku nebo táhl atom, nevytváříme nový prvek
             if (!hasMoved) {
                 const pos = getPointerPos(e);
                 
@@ -776,15 +794,18 @@
                     addAtom(pos.x, pos.y, state.selectedAtom);
                 }
             }
+            hasMoved = false;
         }
 
+        // Eventy pro desktop (Myš)
         canvas.addEventListener('mousedown', onPointerDown);
         canvas.addEventListener('mousemove', onPointerMove);
         canvas.addEventListener('mouseup', onPointerUp);
 
-        canvas.addEventListener('touchstart', e => { e.preventDefault(); onPointerDown(e); });
-        canvas.addEventListener('touchmove', e => { e.preventDefault(); onPointerMove(e); });
-        canvas.addEventListener('touchend', e => { e.preventDefault(); onPointerUp(e); });
+        // Eventy pro chytré telefony a tablety (Dotyk)
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); onPointerDown(e); }, { passive: false });
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); onPointerMove(e); }, { passive: false });
+        canvas.addEventListener('touchend', e => { e.preventDefault(); onPointerUp(e); }, { passive: false });
 
         function addAtom(x, y, symbol) {
             state.atoms.push({ symbol, x, y });
