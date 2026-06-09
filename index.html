@@ -6,9 +6,7 @@
     <title>ChemLab App</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%2300ffff'/%3E%3Cstop offset='100%25' style='stop-color:%23ff00ff'/%3E%3C/linearGradient%3E%3CclipPath id='c'%3E%3Ctext x='50%25' y='50%25' font-size='80' text-anchor='middle' dominant-baseline='central'%3E⚗️%3C/text%3E%3C/clipPath%3E%3C/defs%3E%3Crect width='100' height='100' fill='url(%23g)' clip-path='url(%23c)'/%3E%3C/svg%3E">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-
     <style>
         * {
             margin: 0;
@@ -243,6 +241,10 @@
             transition: all 0.2s;
             text-transform: uppercase;
             letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .btn-clear {
@@ -260,10 +262,21 @@
             background: var(--neon-green);
             color: #000;
             border-color: var(--neon-green);
+            width: 100%;
         }
 
         .btn-analyze:active {
             transform: scale(0.95);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-pink));
+            color: #000;
+            border: none;
+            width: 100%;
+            font-size: 1.1rem;
+            padding: 18px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
         }
 
         .result {
@@ -272,51 +285,16 @@
             border-radius: 12px;
             padding: 20px;
             text-align: center;
-            min-height: 150px;
+            min-height: 120px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            position: relative;
-            overflow: hidden;
+            margin-bottom: 15px;
         }
 
-        .result.identified {
-            border-color: var(--neon-green);
-            animation: success 0.5s ease-out;
-        }
-
-        @keyframes success {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.02); }
-        }
-
-        .result-icon {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-        }
-
-        .result-name {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.6rem;
-            font-weight: 900;
-            color: var(--neon-green);
-            margin-bottom: 8px;
-            letter-spacing: 2px;
-        }
-
-        .result-formula {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.2rem;
-            color: var(--neon-cyan);
-            margin-bottom: 10px;
-        }
-
-        .result-desc {
-            font-size: 0.85rem;
-            color: #ccc;
-            line-height: 1.5;
-        }
+        .result-icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .result-name { font-family: 'Orbitron', sans-serif; font-size: 1.6rem; font-weight: 900; color: var(--neon-green); margin-bottom: 8px; }
 
         .hint {
             background: rgba(255, 107, 53, 0.1);
@@ -337,11 +315,69 @@
             margin-bottom: 8px;
         }
 
-        @media (min-width: 768px) {
-            .canvas-wrapper {
-                height: 500px;
-            }
+        /* Sekce pro přihlašování a učitelský panel */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+
+        .input-box {
+            background: var(--glass-bg);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            max-width: 500px;
+            margin: 40px auto;
         }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border: 2px solid var(--neon-cyan);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1.1rem;
+            font-family: inherit;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .room-code-display {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: var(--neon-cyan);
+            margin: 20px 0;
+            letter-spacing: 4px;
+        }
+
+        #qrcode {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            display: inline-block;
+            margin: 15px 0;
+        }
+
+        .player-list {
+            list-style: none;
+            margin: 20px 0;
+            text-align: left;
+            max-width: 400px;
+            margin: 20px auto;
+        }
+
+        .player-item {
+            background: rgba(255,255,255,0.05);
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            border-left: 3px solid var(--neon-green);
+        }
+
+        @media (min-width: 768px) { .canvas-wrapper { height: 500px; } }
     </style>
 </head>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-P99LN0XXE8"></script>
@@ -356,140 +392,144 @@
     <div class="container">
         <header>
             <h1>⚗️ CHEMLAB</h1>
-            <div class="subtitle">Molekula Builder</div>
+            <div class="subtitle" id="globalSubtitle">Molekula Builder</div>
         </header>
 
-        <div class="stats">
-            <div class="stat">
-                <div class="stat-label">Skóre</div>
-                <div class="stat-value" id="score">0</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Level</div>
-                <div class="stat-value" id="level">1</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Molekul</div>
-                <div class="stat-value" id="completed">0</div>
-            </div>
-            <div class="stat">
-                <div class="stat-label">Série</div>
-                <div class="stat-value" id="streak">0</div>
+        <div id="view-auth" class="view-section active">
+            <div class="input-box">
+                <h2 style="font-family:'Orbitron'; margin-bottom:20px;">Vstup do laboratoře</h2>
+                <input type="text" id="joinName" placeholder="Zadej své jméno" maxlength="15">
+                <input type="text" id="joinRoom" placeholder="Kód místnosti (např. A1B2)" style="text-transform: uppercase;">
+                <button class="btn btn-analyze" id="btnJoinGame" style="margin-bottom: 15px;">🚀 Připojit se jako Žák</button>
+                <div style="margin: 15px 0; color: #666;">— nebo —</div>
+                <button class="btn btn-clear" id="btnCreateRoom" style="width: 100%;">👨‍🏫 Vytvořit místnost jako Učitel</button>
             </div>
         </div>
 
-        <div class="challenge">
-            <div class="challenge-label">🎯 ÚKOL</div>
-            <div class="challenge-text" id="challengeText">Vytvoř molekulu vody (H₂O)</div>
-        </div>
+        <div id="view-host" class="view-section">
+            <div class="input-box" style="max-width: 700px;">
+                <h2 style="font-family:'Orbitron';">Místnost učitele</h2>
+                <p style="color: #aaa; font-size:0.9rem; margin-top:5px;">Žáci se mohou připojit zadáním kódu nebo naskenováním QR:</p>
+                <div class="room-code-display" id="hostRoomCode">------</div>
+                <div id="qrcode"></div>
+                <div style="font-size: 0.8rem; color: var(--neon-cyan); margin-bottom: 20px;" id="hostUrlText"></div>
+                
+                <h3 style="font-family:'Orbitron'; margin-top: 20px;">Připojení žáci (<span id="playerCount">0</span>)</h3>
+                <ul class="player-list" id="hostPlayerList"></ul>
 
-        <div class="atoms-palette">
-            <div class="palette-title">⚛️ VYBER ATOM</div>
-            <div class="atom-grid">
-                <div class="atom-btn selected" data-atom="H">
-                    <div class="atom-symbol">H</div>
-                    <div class="atom-name">Vodík</div>
-                </div>
-                <div class="atom-btn" data-atom="C">
-                    <div class="atom-symbol">C</div>
-                    <div class="atom-name">Uhlík</div>
-                </div>
-                <div class="atom-btn" data-atom="O">
-                    <div class="atom-symbol">O</div>
-                    <div class="atom-name">Kyslík</div>
-                </div>
-                <div class="atom-btn" data-atom="N">
-                    <div class="atom-symbol">N</div>
-                    <div class="atom-name">Dusík</div>
-                </div>
-                <div class="atom-btn" data-atom="Cl">
-                    <div class="atom-symbol">Cl</div>
-                    <div class="atom-name">Chlór</div>
-                </div>
-                <div class="atom-btn" data-atom="S">
-                    <div class="atom-symbol">S</div>
-                    <div class="atom-name">Síra</div>
-                </div>
-                <div class="atom-btn" data-atom="Na">
-                    <div class="atom-symbol">Na</div>
-                    <div class="atom-name">Sodík</div>
-                </div>
+                <button class="btn btn-primary" id="btnStartGame">🚀 Spustit hru všem</button>
             </div>
         </div>
 
-        <div class="canvas-container">
-            <div class="canvas-header">
-                <div class="canvas-title">🧪 PLÁTNO</div>
-                <div class="debug-info" id="debugInfo">Atomů: 0 | Vazeb: 0</div>
-            </div>
-            
-            <div class="canvas-wrapper">
-                <canvas id="canvas"></canvas>
-            </div>
-
-            <div class="controls">
-                <button class="btn btn-clear" id="clearBtn">🗑️ Vymazat</button>
-                <button class="btn btn-analyze" id="analyzeBtn">✓ Analyzovat</button>
+        <div id="view-wait" class="view-section">
+            <div class="input-box">
+                <h2 style="font-family:'Orbitron'; color: var(--neon-cyan);">Jsi v týmu!</h2>
+                <p style="margin: 20px 0; font-size: 1.1rem;">Počkej, až učitel spustí společnou vědeckou výzvu...</p>
+                <div style="font-size: 3rem;">🧪</div>
             </div>
         </div>
 
-        <div class="result" id="result">
-            <div class="result-icon">🔬</div>
-            <div style="color: rgba(255,255,255,0.4);">
-                Klikni na atom → Tap na plátno<br>
-                Dlouhý tap = smazat
+        <div id="view-game" class="view-section">
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-label">Čas</div>
+                    <div class="stat-value" id="gameTimer" style="color: var(--neon-pink);">90 s</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Moje skóre</div>
+                    <div class="stat-value" id="score">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Úroveň</div>
+                    <div class="stat-value" id="level">1</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Série</div>
+                    <div class="stat-value" id="streak">0</div>
+                </div>
             </div>
-        </div>
 
-        <div class="hint">
-            <div class="hint-title">💡 OVLÁDÁNÍ</div>
-            <strong>1.</strong> Tap na atom v paletě<br>
-            <strong>2.</strong> Tap na plátno pro umístění<br>
-            <strong>3.</strong> Atomy blízko sebe se automaticky spojí<br>
-            <strong>4.</strong> Tap na vazbu = změna typu (1/2/3)<br>
-            <strong>5.</strong> Dlouhý tap = smazat<br>
-            <strong>6.</strong> Přesuň atomy prstem
+            <div class="challenge">
+                <div class="challenge-label">🎯 ÚKOL</div>
+                <div class="challenge-text" id="challengeText">Načítám úkol...</div>
+            </div>
+
+            <div class="atoms-palette">
+                <div class="palette-title">⚛️ VYBER ATOM</div>
+                <div class="atom-grid">
+                    <div class="atom-btn selected" data-atom="H"><div class="atom-symbol">H</div><div class="atom-name">Vodík</div></div>
+                    <div class="atom-btn" data-atom="C"><div class="atom-symbol">C</div><div class="atom-name">Uhlík</div></div>
+                    <div class="atom-btn" data-atom="O"><div class="atom-symbol">O</div><div class="atom-name">Kyslík</div></div>
+                    <div class="atom-btn" data-atom="N"><div class="atom-symbol">N</div><div class="atom-name">Dusík</div></div>
+                    <div class="atom-btn" data-atom="Cl"><div class="atom-symbol">Cl</div><div class="atom-name">Chlór</div></div>
+                    <div class="atom-btn" data-atom="S"><div class="atom-symbol">S</div><div class="atom-name">Síra</div></div>
+                    <div class="atom-btn" data-atom="Na"><div class="atom-symbol">Na</div><div class="atom-name">Sodík</div></div>
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="canvas-header">
+                    <div class="canvas-title">🧪 PLÁTNO</div>
+                    <div class="debug-info" id="debugInfo">Atomů: 0 | Vazeb: 0</div>
+                </div>
+                <div class="canvas-wrapper">
+                    <canvas id="canvas"></canvas>
+                </div>
+                <div class="controls">
+                    <button class="btn btn-clear" id="clearBtn">🗑️ Vymazat</button>
+                    <button class="btn btn-analyze" id="analyzeBtn">✓ Odeslat správnou molekulu (+20b)</button>
+                </div>
+            </div>
+
+            <div class="result" id="result">
+                <div class="result-icon">🔬</div>
+                <div style="color: rgba(255,255,255,0.4);">
+                    Klikni na atom → Tap na plátno k umístění<br>
+                    Atomy blízko sebe se propojí.
+                </div>
+            </div>
+
+            <div class="hint">
+                <div class="hint-title">💡 OVLÁDÁNÍ</div>
+                <strong>1.</strong> Vyber prvek v paletě nahoře.<br>
+                <strong>2.</strong> Kliknutím na plátno prvek položíš.<br>
+                <strong>3.</strong> Přiblížením dvou atomů k sobě je automaticky spojíš vazbou.<br>
+                <strong>4.</strong> Kliknutím na vazbu přepínáš mezi jednoduchou, dvojnou a trojnou.<br>
+                <strong>5.</strong> Dlouhým podržením nebo kliknutím pravým tlačítkem prvek smažeš.
+            </div>
         </div>
     </div>
 
     <script>
+        // MANAŽER OBRAZOVEK
+        function showView(viewId) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+        }
+
+        // DATABÁZE CHEMICKEJCH MOLEKUL
         const MOLECULES = {
-            'H2O': { name: 'VODA', formula: 'H₂O', description: 'Nejdůležitější látka pro život! Kyslík má 2 jednoduché vazby na vodíky.', points: 15, icon: '💧', structure: { 'O': [['H', 1], ['H', 1]] } },
-            'O2': { name: 'KYSLÍK', formula: 'O₂', description: 'Molekula, kterou dýcháme. Dva atomy kyslíku spojené dvojnou vazbou.', points: 15, icon: '💨', structure: { 'O': [['O', 2]] } },
-            'CO2': { name: 'OXID UHLIČITÝ', formula: 'CO₂', description: 'Skleníkový plyn. Uhlík má dvojné vazby na oba kyslíky (O=C=O).', points: 30, icon: '🌫️', structure: { 'C': [['O', 2], ['O', 2]] } },
-            'CH4': { name: 'METHAN', formula: 'CH₄', description: 'Zemní plyn! Uhlík ve středu má 4 jednoduché vazby na vodíky.', points: 35, icon: '🔥', structure: { 'C': [['H', 1], ['H', 1], ['H', 1], ['H', 1]] } },
-            'NH3': { name: 'AMONIAK', formula: 'NH₃', description: 'Štiplavý plyn. Dusík má 3 jednoduché vazby na vodíky.', points: 30, icon: '☁️', structure: { 'N': [['H', 1], ['H', 1], ['H', 1]] } },
-            'HCl': { name: 'CHLOROVODÍK', formula: 'HCl', description: 'Kyselina chlorovodíková v plynné formě. H-Cl jednoduchá vazba.', points: 10, icon: '⚗️', structure: { 'H': [['Cl', 1]] } },
-            'N2': { name: 'DUSÍK', formula: 'N₂', description: 'Hlavní složka vzduchu (78%). Trojná vazba N≡N.', points: 25, icon: '💨', structure: { 'N': [['N', 3]] } },
-            'H2': { name: 'VODÍK', formula: 'H₂', description: 'Nejlehčí prvek. Jednoduchá vazba H-H.', points: 10, icon: '💨', structure: { 'H': [['H', 1]] } },
-            'C2H6': { name: 'ETHAN', formula: 'C₂H₆', description: 'Uhlovodík. Dva uhlíky jednoduchá vazba, každý má 3 vodíky.', points: 40, icon: '⛽', structure: { 'C': [['C', 1], ['H', 1], ['H', 1], ['H', 1]] } },
-            'C2H4': { name: 'ETHYLEN', formula: 'C₂H₄', description: 'Nenasycený uhlovodík. Dvojná vazba C=C, každý má 2 vodíky.', points: 40, icon: '🧪', structure: { 'C': [['C', 2], ['H', 1], ['H', 1]] } },
-            'C2H2': { name: 'ACETYLEN', formula: 'C₂H₂', description: 'Svařovací plyn. Trojná vazba C≡C, každý má 1 vodík.', points: 45, icon: '🔧', structure: { 'C': [['C', 3], ['H', 1]] } },
-            'H2S': { name: 'SIROVODÍK', formula: 'H₂S', description: 'Plyn s vůní zkažených vajec. Síra má 2 vodíky.', points: 15, icon: '💨', structure: { 'S': [['H', 1], ['H', 1]] } },
-            'SO2': { name: 'OXID SIŘIČITÝ', formula: 'SO₂', description: 'Znečišťující plyn. Síra má 2 kyslíky dvojnými vazbami.', points: 30, icon: '🌫️', structure: { 'S': [['O', 2], ['O', 2]] } },
-            'NaCl': { name: 'CHLORID SODNÝ', formula: 'NaCl', description: 'Kuchyňská sůl! Na-Cl jednoduchá vazba.', points: 10, icon: '🧂', structure: { 'Na': [['Cl', 1]] } },
-            'CCl4': { name: 'TETRACHLORMETHAN', formula: 'CCl₄', description: 'Rozpouštědlo. Uhlík má 4 chlóry okolo.', points: 35, icon: '🧪', structure: { 'C': [['Cl', 1], ['Cl', 1], ['Cl', 1], ['Cl', 1]] } },
-            'CH3Cl': { name: 'CHLORMETHAN', formula: 'CH₃Cl', description: 'Uhlík s 3 vodíky and 1 chlórem.', points: 25, icon: '🧪' },
-            'C3H8': { name: 'PROPAN', formula: 'C₃H₈', description: 'Topný plyn. 3 uhlíky v řadě, okolo vodíky.', points: 35, icon: '🔥' },
-            'NO': { name: 'OXID DUSNATÝ', formula: 'NO', description: 'Radikál. Dusík a kyslík dvojná vazba.', points: 15, icon: '💨' },
-            'NO2': { name: 'OXID DUSIČITÝ', formula: 'NO₂', description: 'Hnědý plyn. Dusík má 2 kyslíky.', points: 20, icon: '🌫️' },
-            'C6H6': { name: 'BENZEN', formula: 'C₆H₆', description: 'Aromatický kruh! 6 uhlíků v kruhu, každý má vodík.', points: 40, icon: '⬡' }
+            'H2O': { name: 'VODA', formula: 'H₂O', points: 20, structure: { 'O': [['H', 1], ['H', 1]] } },
+            'O2': { name: 'KYSLÍK', formula: 'O₂', points: 20, structure: { 'O': [['O', 2]] } },
+            'CO2': { name: 'OXID UHLIČITÝ', formula: 'CO₂', points: 20, structure: { 'C': [['O', 2], ['O', 2]] } },
+            'CH4': { name: 'METHAN', formula: 'CH₄', points: 20, structure: { 'C': [['H', 1], ['H', 1], ['H', 1], ['H', 1]] } },
+            'NH3': { name: 'AMONIAK', formula: 'NH₃', points: 20, structure: { 'N': [['H', 1], ['H', 1], ['H', 1]] } },
+            'HCl': { name: 'CHLOROVODÍK', formula: 'HCl', points: 20, structure: { 'H': [['Cl', 1]] } },
+            'N2': { name: 'DUSÍK', formula: 'N₂', points: 20, structure: { 'N': [['N', 3]] } }
         };
 
         const MOLECULE_KEYS = Object.keys(MOLECULES);
 
-        function getRandomChallenge() {
-            const key = MOLECULE_KEYS[Math.floor(Math.random() * MOLECULE_KEYS.length)];
-            return {
-                text: `Vytvoř ${MOLECULES[key].name} (${MOLECULES[key].formula})`,
-                target: key
-            };
-        }
+        // GLOBÁLNÍ STAV KLIENTA
+        let roomCode = '';
+        let hostKey = '';
+        let sessionId = '';
+        let pollingInterval = null;
+        let countdownInterval = null;
 
         let state = {
             score: 0,
             level: 1,
-            completed: 0,
             streak: 0,
             currentChallenge: null,
             selectedAtom: 'H',
@@ -499,6 +539,148 @@
             dragOffset: { x: 0, y: 0 }
         };
 
+        // VYTVOŘENÍ MÍSTNOSTI UČITELEM
+        document.getElementById('btnCreateRoom').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/rooms', { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Nepodařilo se vytvořit místnost');
+
+                roomCode = data.room;
+                hostKey = data.hostKey;
+
+                document.getElementById('hostRoomCode').textContent = roomCode;
+                document.getElementById('hostUrlText').textContent = data.joinUrl;
+                document.getElementById('globalSubtitle').textContent = `Učitel (Místnost: ${roomCode})`;
+
+                // Generování QR kódu bezpečně přes staženou knihovnu
+                document.getElementById('qrcode').innerHTML = '';
+                new QRCode(document.getElementById('qrcode'), {
+                    text: data.joinUrl,
+                    width: 180,
+                    height: 180,
+                    colorDark : "#0a0e1a",
+                    colorLight : "#ffffff"
+                });
+
+                showView('view-host');
+                startHostPolling();
+            } catch (err) {
+                alert('Chyba při zakládání: ' + err.message);
+            }
+        });
+
+        // PŘIPOJENÍ ŽÁKA DO MÍSTNOSTI
+        document.getElementById('btnJoinGame').addEventListener('click', async () => {
+            const name = document.getElementById('joinName').value.trim();
+            const code = document.getElementById('joinRoom').value.trim().toUpperCase();
+
+            if (!name || !code) {
+                alert('Vyplň své jméno i kód místnosti!');
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/join', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room: code, name: name })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Nelze se připojit');
+
+                roomCode = code;
+                sessionId = data.sessionId;
+                document.getElementById('globalSubtitle').textContent = `Žák: ${name} (Místnost: ${roomCode})`;
+
+                showView('view-wait');
+                startPlayerPolling();
+            } catch (err) {
+                alert('Chyba při připojování: ' + err.message);
+            }
+        });
+
+        // UČITEL SPUSTÍ HRU PRO VŠECHNY
+        document.getElementById('btnStartGame').addEventListener('click', async () => {
+            try {
+                const res = await fetch('/api/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room: roomCode, hostKey: hostKey })
+                });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.error || 'Hru nelze odstartovat');
+                }
+                alert('Hra byla úspěšně spuštěna!');
+            } catch (err) {
+                alert('Chyba startu: ' + err.message);
+            }
+        });
+
+        // POLLING PRO UČITELE (Sleduje seznam žáků)
+        function startHostPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/room?room=${roomCode}&hostKey=${hostKey}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+
+                    const listEl = document.getElementById('hostPlayerList');
+                    listEl.innerHTML = '';
+                    document.getElementById('playerCount').textContent = data.players.length;
+
+                    data.players.forEach(p => {
+                        const li = document.createElement('li');
+                        li.className = 'player-item';
+                        li.innerHTML = `<span>👤 ${p.name}</span> <strong>${p.score} b</strong>`;
+                        listEl.appendChild(li);
+                    });
+                } catch (e) { console.error(e); }
+            }, 2000);
+        }
+
+        // POLLING PRO ŽÁKA (Čeká na odstartování hry a aktualizuje časovač)
+        function startPlayerPolling() {
+            if (pollingInterval) clearInterval(pollingInterval);
+            pollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/room?room=${roomCode}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+
+                    if (data.status === 'running') {
+                        if (document.getElementById('view-wait').classList.contains('active')) {
+                            // Právě se odstartovalo!
+                            showView('view-game');
+                            nextChallenge();
+                            resizeCanvas();
+                        }
+                        document.getElementById('gameTimer').textContent = `${data.timeLeft} s`;
+                    } else if (data.status === 'finished') {
+                        clearInterval(pollingInterval);
+                        alert(`Hra skončila! Tvoje konečné skóre je ${state.score} bodů.`);
+                        location.reload();
+                    }
+                } catch (e) { console.error(e); }
+            }, 1500);
+        }
+
+        // GENERÁTOR NOVÉHO ÚKOLU PRO ŽÁKA
+        function nextChallenge() {
+            const randomKey = MOLECULE_KEYS[Math.floor(Math.random() * MOLECULE_KEYS.length)];
+            const targetMol = MOLECULES[randomKey];
+            state.currentChallenge = randomKey;
+            document.getElementById('challengeText').textContent = `Vytvoř molekulu: ${targetMol.name} (${targetMol.formula})`;
+            
+            // Vymazat plátno pro nový úkol
+            state.atoms = [];
+            state.bonds = [];
+            draw();
+        }
+
+        // --- INTERAKTIVNÍ CHEMICKÉ PLÁTNO (CANVAS) ---
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         const wrapper = canvas.parentElement;
@@ -510,10 +692,9 @@
             draw();
         }
 
-        resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
 
-        // Atom selection
+        // Výběr atomu z palety
         document.querySelectorAll('.atom-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.atom-btn').forEach(b => b.classList.remove('selected'));
@@ -522,7 +703,6 @@
             });
         });
 
-        // Universal pointer event handler
         let longPressTimer = null;
         let isDragging = false;
         let hasMoved = false;
@@ -530,30 +710,20 @@
         function getPointerPos(e) {
             const rect = canvas.getBoundingClientRect();
             if (e.touches && e.touches.length > 0) {
-                return {
-                    x: e.touches[0].clientX - rect.left,
-                    y: e.touches[0].clientY - rect.top
-                };
+                return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
             }
-            return {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
-            };
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
 
         function onPointerDown(e) {
-            e.preventDefault();
             const pos = getPointerPos(e);
             hasMoved = false;
-
             const atomIdx = findAtomAt(pos.x, pos.y);
+
             if (atomIdx !== null) {
                 isDragging = true;
                 state.draggedAtom = atomIdx;
-                state.dragOffset = {
-                    x: pos.x - state.atoms[atomIdx].x,
-                    y: pos.y - state.atoms[atomIdx].y
-                };
+                state.dragOffset = { x: pos.x - state.atoms[atomIdx].x, y: pos.y - state.atoms[atomIdx].y };
 
                 longPressTimer = setTimeout(() => {
                     if (!hasMoved) {
@@ -561,19 +731,13 @@
                         isDragging = false;
                         state.draggedAtom = null;
                     }
-                    longPressTimer = null;
                 }, 600);
             }
         }
 
         function onPointerMove(e) {
-            e.preventDefault();
             hasMoved = true;
-
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
+            if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 
             if (isDragging && state.draggedAtom !== null) {
                 const pos = getPointerPos(e);
@@ -584,12 +748,9 @@
             }
         }
 
-        // OPRAVENÁ FUNKCIA: Teraz spoľahlivo funguje na mobile aj desktope
+        // OPRAVA PRO MOBILNÍ TELEFONY: Sjednocený spolehlivý výpočet pozice dotyku/kliknutí
         function onPointerUp(e) {
-            if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
+            if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 
             if (isDragging) {
                 isDragging = false;
@@ -600,7 +761,7 @@
 
             if (!hasMoved) {
                 const pos = getPointerPos(e);
-
+                
                 const bondIdx = findBondAt(pos.x, pos.y);
                 if (bondIdx !== null) {
                     cycleBondType(bondIdx);
@@ -608,40 +769,22 @@
                 }
 
                 const atomIdx = findAtomAt(pos.x, pos.y);
-                if (atomIdx !== null) {
-                    return;
-                }
+                if (atomIdx !== null) return;
 
-                addAtom(pos.x, pos.y, state.selectedAtom);
+                // Přidání nového atomu na plátno
+                if (pos.x >= 0 && pos.y >= 0 && pos.x <= canvas.width && pos.y <= canvas.height) {
+                    addAtom(pos.x, pos.y, state.selectedAtom);
+                }
             }
         }
-
-        canvas.addEventListener('touchstart', onPointerDown, { passive: false });
-        canvas.addEventListener('touchmove', onPointerMove, { passive: false });
-        canvas.addEventListener('touchend', onPointerUp, { passive: false });
 
         canvas.addEventListener('mousedown', onPointerDown);
         canvas.addEventListener('mousemove', onPointerMove);
         canvas.addEventListener('mouseup', onPointerUp);
 
-        canvas.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            const bondIdx = findBondAt(x, y);
-            if (bondIdx !== null) {
-                state.bonds.splice(bondIdx, 1);
-                draw();
-                return;
-            }
-
-            const atomIdx = findAtomAt(x, y);
-            if (atomIdx !== null) {
-                removeAtom(atomIdx);
-            }
-        });
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); onPointerDown(e); });
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); onPointerMove(e); });
+        canvas.addEventListener('touchend', e => { e.preventDefault(); onPointerUp(e); });
 
         function addAtom(x, y, symbol) {
             state.atoms.push({ symbol, x, y });
@@ -660,7 +803,7 @@
         }
 
         function updateAutoBonds() {
-            const DIST = 120;
+            const DIST = 90;
             state.bonds = state.bonds.filter(b => b.manual);
 
             for (let i = 0; i < state.atoms.length; i++) {
@@ -670,10 +813,7 @@
                     const dist = Math.sqrt((a2.x - a1.x) ** 2 + (a2.y - a1.y) ** 2);
 
                     if (dist < DIST) {
-                        const exists = state.bonds.some(b =>
-                            (b.start === i && b.end === j) || (b.start === j && b.end === i)
-                        );
-
+                        const exists = state.bonds.some(b => (b.start === i && b.end === j) || (b.start === j && b.end === i));
                         if (!exists) {
                             state.bonds.push({ start: i, end: j, type: 1, manual: false });
                         }
@@ -708,92 +848,42 @@
         }
 
         function distToLine(px, py, x1, y1, x2, y2) {
-            const dx = x2 - x1;
-            const dy = y2 - y1;
+            const dx = x2 - x1, dy = y2 - y1;
             const lenSq = dx * dx + dy * dy;
-            let param = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+            let param = lenSq === 0 ? -1 : ((px - x1) * dx + (py - y1) * dy) / lenSq;
             param = Math.max(0, Math.min(1, param));
-            const xx = x1 + param * dx;
-            const yy = y1 + param * dy;
-            return Math.sqrt((px - xx) ** 2 + (py - yy) ** 2);
+            return Math.sqrt((px - (x1 + param * dx)) ** 2 + (py - (y1 + param * dy)) ** 2);
         }
 
+        // RENDER VAZEB A ATOMŮ NA CANVAS
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             state.bonds.forEach(b => {
                 const a1 = state.atoms[b.start];
                 const a2 = state.atoms[b.end];
-
-                ctx.shadowBlur = 12;
-                ctx.shadowColor = b.manual ? '#ff00ff' : '#00ffff';
                 ctx.strokeStyle = b.manual ? '#ff00ff' : '#00ffff';
-                ctx.lineWidth = 5;
-                ctx.lineCap = 'round';
-
+                ctx.lineWidth = 4;
+                
                 if (b.type === 1) {
-                    ctx.beginPath();
-                    ctx.moveTo(a1.x, a1.y);
-                    ctx.lineTo(a2.x, a2.y);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(a1.x, a1.y); ctx.lineTo(a2.x, a2.y); ctx.stroke();
                 } else if (b.type === 2) {
                     const angle = Math.atan2(a2.y - a1.y, a2.x - a1.x);
-                    const off = 5;
-                    const dx = Math.sin(angle) * off;
-                    const dy = -Math.cos(angle) * off;
-
-                    ctx.beginPath();
-                    ctx.moveTo(a1.x + dx, a1.y + dy);
-                    ctx.lineTo(a2.x + dx, a2.y + dy);
-                    ctx.stroke();
-
-                    ctx.beginPath();
-                    ctx.moveTo(a1.x - dx, a1.y - dy);
-                    ctx.lineTo(a2.x - dx, a2.y - dy);
-                    ctx.stroke();
+                    const dx = Math.sin(angle) * 5, dy = -Math.cos(angle) * 5;
+                    ctx.beginPath(); ctx.moveTo(a1.x + dx, a1.y + dy); ctx.lineTo(a2.x + dx, a2.y + dy); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(a1.x - dx, a1.y - dy); ctx.lineTo(a2.x - dx, a2.y - dy); ctx.stroke();
                 } else {
-                    const angle = Math.atan2(a2.y - a1.y, a2.x - a1.x);
-                    const off = 6;
-                    const dx = Math.sin(angle) * off;
-                    const dy = -Math.cos(angle) * off;
-
-                    ctx.beginPath();
-                    ctx.moveTo(a1.x, a1.y);
-                    ctx.lineTo(a2.x, a2.y);
-                    ctx.stroke();
-
-                    ctx.beginPath();
-                    ctx.moveTo(a1.x + dx, a1.y + dy);
-                    ctx.lineTo(a2.x + dx, a2.y + dy);
-                    ctx.stroke();
-
-                    ctx.beginPath();
-                    ctx.moveTo(a1.x - dx, a1.y - dy);
-                    ctx.lineTo(a2.x - dx, a2.y - dy);
-                    ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(a1.x, a1.y); ctx.lineTo(a2.x, a2.y); ctx.stroke();
                 }
             });
 
             state.atoms.forEach(a => {
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = '#00ffff';
-
                 ctx.fillStyle = 'rgba(21, 27, 46, 0.95)';
-                ctx.beginPath();
-                ctx.arc(a.x, a.y, 30, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.beginPath(); ctx.arc(a.x, a.y, 25, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 2; ctx.stroke();
 
-                ctx.strokeStyle = '#00ffff';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(a.x, a.y, 30, 0, Math.PI * 2);
-                ctx.stroke();
-
-                ctx.shadowBlur = 0;
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 20px Orbitron';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Orbitron';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText(a.symbol, a.x, a.y);
             });
 
@@ -801,158 +891,70 @@
         }
 
         document.getElementById('clearBtn').addEventListener('click', () => {
-            state.atoms = [];
-            state.bonds = [];
-            draw();
-            showResult(null);
+            state.atoms = []; state.bonds = []; draw();
         });
 
-        document.getElementById('analyzeBtn').addEventListener('click', analyze);
-
-        function checkBondStructure(formula) {
-            if (!MOLECULES[formula] || !MOLECULES[formula].structure) return true;
-            
-            const expectedStructure = MOLECULES[formula].structure;
-            
-            for (const [centerSymbol, expectedBonds] of Object.entries(expectedStructure)) {
-                const centerAtoms = state.atoms
-                    .map((atom, idx) => ({ atom, idx }))
-                    .filter(({ atom }) => atom.symbol === centerSymbol);
-                
-                if (centerAtoms.length === 0) return false;
-                
-                let foundMatch = false;
-                for (const { idx } of centerAtoms) {
-                    const actualBonds = [];
-                    state.bonds.forEach(bond => {
-                        if (bond.start === idx) {
-                            actualBonds.push([state.atoms[bond.end].symbol, bond.type]);
-                        } else if (bond.end === idx) {
-                            actualBonds.push([state.atoms[bond.start].symbol, bond.type]);
-                        }
-                    });
-                    
-                    const sortedActual = actualBonds.sort((a, b) => 
-                        a[0].localeCompare(b[0]) || a[1] - b[1]
-                    );
-                    const sortedExpected = [...expectedBonds].sort((a, b) => 
-                        a[0].localeCompare(b[0]) || a[1] - b[1]
-                    );
-                    
-                    if (JSON.stringify(sortedActual) === JSON.stringify(sortedExpected)) {
-                        foundMatch = true;
-                        break;
-                    }
-                }
-                
-                if (!foundMatch) return false;
-            }
-            
-            return true;
-        }
-
-        function analyze() {
+        // KONTROLA A VYHODNOCENÍ SLOŽENÉ MOLEKULY
+        document.getElementById('analyzeBtn').addEventListener('click', async () => {
             if (state.atoms.length === 0) {
-                alert('❌ Nejdřív přidej atomy!');
+                alert('❌ Nejprve polož nějaké atomy!');
                 return;
             }
 
+            const targetKey = state.currentChallenge;
+            const targetStructure = MOLECULES[targetKey].structure;
+
+            // Jednoduchá kontrola počtu atomů
             const counts = {};
             state.atoms.forEach(a => counts[a.symbol] = (counts[a.symbol] || 0) + 1);
 
-            for (const [key, mol] of Object.entries(MOLECULES)) {
-                const expected = {};
-                key.match(/([A-Z][a-z]?)(\d*)/g).forEach(m => {
-                    const [, sym, num] = m.match(/([A-Z][a-z]?)(\d*)/);
-                    expected[sym] = num ? parseInt(num) : 1;
-                });
-
-                if (JSON.stringify(counts) === JSON.stringify(expected)) {
-                    if (!checkBondStructure(key)) {
-                        showResult({
-                            name: 'ŠPATNÁ STRUKTURA',
-                            formula: createFormula(counts),
-                            description: `Správné atomy (${mol.name}), ale špatné vazby! Zkontroluj typy vazeb.`,
-                            icon: '⚠️'
-                        });
-                        state.streak = 0;
-                        updateStats();
-                        return;
-                    }
-
-                    if (state.currentChallenge && key === state.currentChallenge.target) {
-                        handleSuccess(mol);
-                    } else {
-                        showResult(mol);
-                        alert(`💡 Našel jsi ${mol.name}!\nAle potřebuješ: ${state.currentChallenge ? MOLECULES[state.currentChallenge.target].name : 'něco jiného'}`);
-                    }
-                    return;
-                }
-            }
-
-            showResult({ name: 'NEZNÁMÁ MOLEKULA', formula: createFormula(counts), description: 'Neodpovídá žádné známé molekule. Zkus to znovu!', icon: '❓' });
-            state.streak = 0;
-            updateStats();
-        }
-
-        function createFormula(counts) {
-            let f = '';
-            ['C', 'H', 'O', 'N', 'S', 'Cl', 'Na'].forEach(s => {
-                if (counts[s]) f += s + (counts[s] > 1 ? counts[s] : '');
+            const expectedCounts = {};
+            targetKey.match(/([A-Z][a-z]?)(\d*)/g).forEach(m => {
+                const [, sym, num] = m.match(/([A-Z][a-z]?)(\d*)/);
+                expectedCounts[sym] = num ? parseInt(num) : 1;
             });
-            return f || '???';
-        }
 
-        function handleSuccess(mol) {
-            state.score += mol.points;
-            state.streak++;
-            state.completed++;
+            let isCorrect = JSON.stringify(counts) === JSON.stringify(expectedCounts);
 
-            if (state.completed % 5 === 0) state.level++;
+            if (isCorrect) {
+                // ÚSPĚCH -> Přičtení bodů na server
+                try {
+                    const res = await fetch('/api/score', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room: roomCode, sessionId: sessionId, delta: 20 })
+                    });
+                    
+                    if (res.ok) {
+                        state.score += 20;
+                        state.streak += 1;
+                        state.level = Math.floor(state.score / 60) + 1;
 
-            updateStats();
-            showResult(mol);
+                        document.getElementById('score').textContent = state.score;
+                        document.getElementById('streak').textContent = state.streak;
+                        document.getElementById('level').textContent = state.level;
 
-            setTimeout(() => {
-                if (confirm(`🎉 ${mol.name}!\n\n+${mol.points} bodů | Série: ${state.streak}\n\nDalší výzva?`)) {
-                    nextChallenge();
-                }
-            }, 400);
-        }
+                        document.getElementById('result').innerHTML = `
+                            <div class="result-icon">🎉</div>
+                            <div class="result-name" style="color:var(--neon-green);">VÝBORNĚ!</div>
+                            <div style="font-size:0.9rem;">Molekula byla správně odeslána na server!</div>
+                        `;
 
-        function showResult(mol) {
-            const r = document.getElementById('result');
-            if (!mol) {
-                r.className = 'result';
-                r.innerHTML = '<div class="result-icon">🔬</div><div style="color: rgba(255,255,255,0.4);">Klikni na atom → Tap na plátno<br>Dlouhý tap = smazat</div>';
+                        setTimeout(() => {
+                            nextChallenge();
+                        }, 2000);
+                    }
+                } catch (e) { alert('Chyba při odesílání skóre.'); }
             } else {
-                r.className = 'result' + (mol.points ? ' identified' : '');
-                r.innerHTML = `
-                    <div class="result-icon">${mol.icon}</div>
-                    <div class="result-name">${mol.name}</div>
-                    <div class="result-formula">${mol.formula}</div>
-                    <div class="result-desc">${mol.description}</div>
+                state.streak = 0;
+                document.getElementById('streak').textContent = "0";
+                document.getElementById('result').innerHTML = `
+                    <div class="result-icon">❌</div>
+                    <div class="result-name" style="color:var(--neon-pink);">NESPRÁVNĚ</div>
+                    <div style="font-size:0.9rem;">Zkontroluj vzorec a zkus to znovu.</div>
                 `;
             }
-        }
-
-        function nextChallenge() {
-            state.currentChallenge = getRandomChallenge();
-            document.getElementById('challengeText').textContent = state.currentChallenge.text;
-            state.atoms = [];
-            state.bonds = [];
-            draw();
-            showResult(null);
-        }
-
-        function updateStats() {
-            document.getElementById('score').textContent = state.score;
-            document.getElementById('level').textContent = state.level;
-            document.getElementById('completed').textContent = state.completed;
-            document.getElementById('streak').textContent = state.streak;
-        }
-
-        nextChallenge();
-</script>
+        });
+    </script>
 </body>
 </html>
