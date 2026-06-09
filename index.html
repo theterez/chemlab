@@ -279,6 +279,12 @@
             box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
         }
 
+        .btn-stop-active {
+            background: var(--neon-pink) !important;
+            color: #000 !important;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.5) !important;
+        }
+
         .result {
             background: linear-gradient(135deg, rgba(0, 255, 136, 0.15), rgba(0, 255, 255, 0.15));
             border: 2px solid rgba(0, 255, 255, 0.3);
@@ -377,6 +383,31 @@
             border-left: 3px solid var(--neon-green);
         }
 
+        /* Dynamický kontejner pro flexibilní přesun leaderboardu */
+        .host-layout {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .host-top-area {
+            order: 1;
+        }
+
+        .host-leaderboard-area {
+            order: 2;
+            margin-top: 20px;
+        }
+
+        /* Třída aktivovaná přes JS při spuštění hry */
+        .game-started-layout .host-top-area {
+            display: none !important; /* Kompletně skryje kód, URL i QR */
+        }
+        
+        .game-started-layout .host-leaderboard-area {
+            order: 1; /* Posune leaderboard na samotný vrchol */
+            margin-top: 0px;
+        }
+
         @media (min-width: 768px) { .canvas-wrapper { height: 500px; } }
     </style>
 </head>
@@ -399,17 +430,23 @@
         </div>
 
         <div id="view-host" class="view-section">
-            <div class="input-box" style="max-width: 700px;">
-                <h2 style="font-family:'Orbitron';">Místnost učitele</h2>
-                <p style="color: #aaa; font-size:0.9rem; margin-top:5px;">Žáci se mohou připojit zadáním kódu nebo naskenováním QR:</p>
-                <div class="room-code-display" id="hostRoomCode">------</div>
-                <div id="qrcode"></div>
-                <div style="font-size: 0.8rem; color: var(--neon-cyan); margin-bottom: 20px;" id="hostUrlText"></div>
+            <div class="input-box host-layout" id="hostMainBox" style="max-width: 700px;">
                 
-                <h3 style="font-family:'Orbitron'; margin-top: 20px;">Připojení žáci (<span id="playerCount">0</span>)</h3>
-                <ul class="player-list" id="hostPlayerList"></ul>
+                <div class="host-top-area" id="hostTopArea">
+                    <h2 style="font-family:'Orbitron';">Místnost učitele</h2>
+                    <p style="color: #aaa; font-size:0.9rem; margin-top:5px;">Žáci se mohou připojit zadáním kódu nebo naskenováním QR:</p>
+                    <div class="room-code-display" id="hostRoomCode">------</div>
+                    <div id="qrcode"></div>
+                    <div style="font-size: 0.8rem; color: var(--neon-cyan); margin-bottom: 20px;" id="hostUrlText"></div>
+                </div>
 
-                <button class="btn btn-primary" id="btnStartGame">🚀 Spustit hru všem</button>
+                <div class="host-leaderboard-area">
+                    <h3 style="font-family:'Orbitron';"><span id="leaderboardTitle">Připojení žáci</span> (<span id="playerCount">0</span>)</h3>
+                    <ul class="player-list" id="hostPlayerList"></ul>
+
+                    <button class="btn btn-primary" id="btnStartGame">🚀 Spustit hru všem</button>
+                </div>
+
             </div>
         </div>
 
@@ -499,7 +536,7 @@
             document.getElementById(viewId).classList.add('active');
         }
 
-        // DATABÁZE CHEMICKEJCH MOLEKUL
+        // DATABÁZE MOLEKUL
         const MOLECULES = {
             'H2O': { name: 'VODA', formula: 'H₂O', points: 20, structure: { 'O': [['H', 1], ['H', 1]] } },
             'O2': { name: 'KYSLÍK', formula: 'O₂', points: 20, structure: { 'O': [['O', 2]] } },
@@ -517,7 +554,7 @@
         let hostKey = '';
         let sessionId = '';
         let pollingInterval = null;
-        let countdownInterval = null;
+        let isGameStarted = false; // Příznak běžící hry pro UI učitele
 
         let state = {
             score: 0,
@@ -531,6 +568,83 @@
             dragOffset: { x: 0, y: 0 }
         };
 
+        // POMOCNÁ FUNKCE PRO ZÍSKÁNÍ IP ADRESY KLIENTA PRO LOGOVÁNÍ
+        async function getClientIp() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                return data.ip;
+            } catch (e) {
+                return 'UNKNOWN_IP';
+            }
+        }
+
+        // NAČTENÍ STAVU Z LOCALSTORAGE PŘI REFRESHI STRÁNKY
+        window.addEventListener('load', () => {
+            const savedRole = localStorage.getItem('chemlab_role');
+            const savedRoom = localStorage.getItem('chemlab_roomCode');
+            
+            if (savedRole === 'teacher' && savedRoom) {
+                roomCode = savedRoom;
+                hostKey = localStorage.getItem('chemlab_hostKey');
+                isGameStarted = localStorage.getItem('chemlab_isStarted') === 'true';
+
+                document.getElementById('hostRoomCode').textContent = roomCode;
+                document.getElementById('globalSubtitle').textContent = `Učitel (Místnost: ${roomCode})`;
+                
+                // Přegenerování čistého QR kódu pouze na ROOM kód
+                document.getElementById('qrcode').innerHTML = '';
+                new QRCode(document.getElementById('qrcode'), {
+                    text: roomCode,
+                    width: 180,
+                    height: 180,
+                    colorDark : "#0a0e1a",
+                    colorLight : "#ffffff"
+                });
+
+                if (isGameStarted) {
+                    setTeacherUiToRunning();
+                }
+
+                showView('view-host');
+                startHostPolling();
+            } 
+            else if (savedRole === 'student' && savedRoom) {
+                roomCode = savedRoom;
+                sessionId = localStorage.getItem('chemlab_sessionId');
+                const studentName = localStorage.getItem('chemlab_studentName') || 'Žák';
+                
+                state.score = parseInt(localStorage.getItem('chemlab_score') || '0', 10);
+                state.level = parseInt(localStorage.getItem('chemlab_level') || '1', 10);
+                state.streak = parseInt(localStorage.getItem('chemlab_streak') || '0', 10);
+
+                document.getElementById('score').textContent = state.score;
+                document.getElementById('streak').textContent = state.streak;
+                document.getElementById('level').textContent = state.level;
+                document.getElementById('globalSubtitle').textContent = `Žák: ${studentName} (Místnost: ${roomCode})`;
+
+                const lastStatus = localStorage.getItem('chemlab_lastStatus');
+                if (lastStatus === 'running') {
+                    showView('view-game');
+                    nextChallenge();
+                    resizeCanvas();
+                } else {
+                    showView('view-wait');
+                }
+                startPlayerPolling();
+            }
+        });
+
+        // POMOCNÁ FUNKCE: Nastavení vzhledu učitelského panelu během spuštěné hry
+        function setTeacherUiToRunning() {
+            document.getElementById('hostMainBox').classList.add('game-started-layout');
+            document.getElementById('leaderboardTitle').textContent = 'Průběžný žebříček žáků';
+            
+            const startBtn = document.getElementById('btnStartGame');
+            startBtn.textContent = '🛑 Ukončit hru';
+            startBtn.classList.add('btn-stop-active');
+        }
+
         // VYTVOŘENÍ MÍSTNOSTI UČITELEM
         document.getElementById('btnCreateRoom').addEventListener('click', async () => {
             try {
@@ -540,15 +654,22 @@
 
                 roomCode = data.room;
                 hostKey = data.hostKey;
+                isGameStarted = false;
+
+                // Uložení učitelských parametrů do LocalStorage proti refreshi
+                localStorage.setItem('chemlab_role', 'teacher');
+                localStorage.setItem('chemlab_roomCode', roomCode);
+                localStorage.setItem('chemlab_hostKey', hostKey);
+                localStorage.setItem('chemlab_isStarted', 'false');
 
                 document.getElementById('hostRoomCode').textContent = roomCode;
                 document.getElementById('hostUrlText').textContent = data.joinUrl;
                 document.getElementById('globalSubtitle').textContent = `Učitel (Místnost: ${roomCode})`;
 
-                // Generování QR kódu bezpečně přes staženou knihovnu
+                // ZMĚNA: QR kód nyní generuje čistě jen kód místnosti (roomCode), nikoliv URL
                 document.getElementById('qrcode').innerHTML = '';
                 new QRCode(document.getElementById('qrcode'), {
-                    text: data.joinUrl,
+                    text: roomCode,
                     width: 180,
                     height: 180,
                     colorDark : "#0a0e1a",
@@ -562,7 +683,7 @@
             }
         });
 
-        // PŘIPOJENÍ ŽÁKA DO MÍSTNOSTI
+        // PŘIPOJENÍ ŽÁKA DO MÍSTNOSTI VČETNĚ LOGOVÁNÍ IP ADRESY
         document.getElementById('btnJoinGame').addEventListener('click', async () => {
             const name = document.getElementById('joinName').value.trim();
             const code = document.getElementById('joinRoom').value.trim().toUpperCase();
@@ -572,17 +693,28 @@
                 return;
             }
 
+            // Získání IP adresy uživatele pro zalogování na serveru
+            const clientIp = await getClientIp();
+
             try {
                 const res = await fetch('/api/join', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room: code, name: name })
+                    body: JSON.stringify({ room: code, name: name, ip: clientIp })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error || 'Nelze se připojit');
 
                 roomCode = code;
                 sessionId = data.sessionId;
+
+                // Uložení žákovských parametrů do LocalStorage proti refreshi
+                localStorage.setItem('chemlab_role', 'student');
+                localStorage.setItem('chemlab_roomCode', roomCode);
+                localStorage.setItem('chemlab_sessionId', sessionId);
+                localStorage.setItem('chemlab_studentName', name);
+                localStorage.setItem('chemlab_lastStatus', 'waiting');
+
                 document.getElementById('globalSubtitle').textContent = `Žák: ${name} (Místnost: ${roomCode})`;
 
                 showView('view-wait');
@@ -592,25 +724,50 @@
             }
         });
 
-        // UČITEL SPUSTÍ HRU PRO VŠECHNY
+        // TLAČÍTKO SPUSTIT SE PO SPUŠTĚNÍ ZMĚNÍ NA UKONČIT A NAOPAK
         document.getElementById('btnStartGame').addEventListener('click', async () => {
-            try {
-                const res = await fetch('/api/start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room: roomCode, hostKey: hostKey })
-                });
-                if (!res.ok) {
-                    const data = await res.json();
-                    throw new Error(data.error || 'Hru nelze odstartovat');
+            if (!isGameStarted) {
+                // SPUŠTĚNÍ HRY
+                try {
+                    const res = await fetch('/api/start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room: roomCode, hostKey: hostKey })
+                    });
+                    if (!res.ok) {
+                        const data = await res.json();
+                        throw new Error(data.error || 'Hru nelze odstartovat');
+                    }
+                    
+                    isGameStarted = true;
+                    localStorage.setItem('chemlab_isStarted', 'true');
+                    
+                    // Změna vizuálu tlačítka a posun žebříčku nahoru (přidáním CSS třídy)
+                    setTeacherUiToRunning();
+                    
+                } catch (err) {
+                    alert('Chyba startu: ' + err.message);
                 }
-                alert('Hra byla úspěšně spuštěna!');
-            } catch (err) {
-                alert('Chyba startu: ' + err.message);
+            } else {
+                // UKONČENÍ HRY UČITELEM
+                if (confirm('Opravdu si přejete hru pro všechny žáky předčasně ukončit?')) {
+                    try {
+                        const res = await fetch('/api/end', { // Případné API volání pro ukončení místnosti
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ room: roomCode, hostKey: hostKey, status: 'finished' })
+                        });
+                    } catch (e) { console.error("API ukončení selhalo, provádím lokálně"); }
+                    
+                    // Reset lokálního stavu učitele
+                    localStorage.clear();
+                    alert('Hra byla ukončena.');
+                    location.reload();
+                }
             }
         });
 
-        // POLLING PRO UČITELE (Sleduje seznam žáků)
+        // POLLING PRO UČITELE (Sleduje žebříček)
         function startHostPolling() {
             if (pollingInterval) clearInterval(pollingInterval);
             pollingInterval = setInterval(async () => {
@@ -619,11 +776,21 @@
                     if (!res.ok) return;
                     const data = await res.json();
 
+                    // Pokud mezitím stav na backendu skočil do běžící hry a my to lokálně nevíme (např. po obnovení učitelské stránky)
+                    if (data.status === 'running' && !isGameStarted) {
+                        isGameStarted = true;
+                        localStorage.setItem('chemlab_isStarted', 'true');
+                        setTeacherUiToRunning();
+                    }
+
                     const listEl = document.getElementById('hostPlayerList');
                     listEl.innerHTML = '';
                     document.getElementById('playerCount').textContent = data.players.length;
 
-                    data.players.forEach(p => {
+                    // Seřazení hráčů podle skóre sestupně (Leaderboard)
+                    const sortedPlayers = data.players.sort((a, b) => b.score - a.score);
+
+                    sortedPlayers.forEach(p => {
                         const li = document.createElement('li');
                         li.className = 'player-item';
                         li.innerHTML = `<span>👤 ${p.name}</span> <strong>${p.score} b</strong>`;
@@ -633,7 +800,7 @@
             }, 2000);
         }
 
-        // POLLING PRO ŽÁKA (Čeká na odstartování hry a aktualizuje časovač)
+        // POLLING PRO ŽÁKA (Sleduje stav hry a ukládá ho)
         function startPlayerPolling() {
             if (pollingInterval) clearInterval(pollingInterval);
             pollingInterval = setInterval(async () => {
@@ -643,17 +810,19 @@
                     const data = await res.json();
 
                     if (data.status === 'running') {
+                        localStorage.setItem('chemlab_lastStatus', 'running');
                         if (document.getElementById('view-wait').classList.contains('active')) {
-                            // Právě se odstartovalo!
                             showView('view-game');
                             nextChallenge();
                             resizeCanvas();
                         }
                         document.getElementById('gameTimer').textContent = `${data.timeLeft} s`;
                     } else if (data.status === 'finished') {
+                        // ZMĚNA: Hra se po dojetí času neukončí natvrdo pomocí reloadu, pouze zastaví polling.
                         clearInterval(pollingInterval);
-                        alert(`Hra skončila! Tvoje konečné skóre je ${state.score} bodů.`);
-                        location.reload();
+                        localStorage.setItem('chemlab_lastStatus', 'finished');
+                        document.getElementById('gameTimer').textContent = `Konec`;
+                        document.getElementById('challengeText').textContent = `Výzva dokončena! Skvělá práce.`;
                     }
                 } catch (e) { console.error(e); }
             }, 1500);
@@ -666,7 +835,6 @@
             state.currentChallenge = randomKey;
             document.getElementById('challengeText').textContent = `Vytvoř molekulu: ${targetMol.name} (${targetMol.formula})`;
             
-            // Vymazat plátno pro nový úkol
             state.atoms = [];
             state.bonds = [];
             draw();
@@ -686,7 +854,6 @@
 
         window.addEventListener('resize', resizeCanvas);
 
-        // Výběr atomu z palety
         document.querySelectorAll('.atom-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.atom-btn').forEach(b => b.classList.remove('selected'));
@@ -699,25 +866,21 @@
         let isDragging = false;
         let hasMoved = false;
 
-        // UKLÁDÁNÍ SOUŘADNIC BEZPEČNĚ PRO MYŠ I MOBILNÍ DOTYKY (VČETNĚ UNIKÁTNÍHO TOUCHENDU)
         function getPointerPos(e) {
             const rect = canvas.getBoundingClientRect();
             
-            // Pro touchend/touchcancel eventy, kde prst už opustil plochu
             if (e.changedTouches && e.changedTouches.length > 0) {
                 return {
                     x: e.changedTouches[0].clientX - rect.left,
                     y: e.changedTouches[0].clientY - rect.top
                 };
             }
-            // Pro standardní touchstart a touchmove eventy
             if (e.touches && e.touches.length > 0) {
                 return {
                     x: e.touches[0].clientX - rect.left,
                     y: e.touches[0].clientY - rect.top
                 };
             }
-            // Klasický fallback pro myš na PC
             return { x: e.clientX - rect.left, y: e.clientY - rect.top };
         }
 
@@ -742,7 +905,6 @@
         }
 
         function onPointerMove(e) {
-            // Určíme, jestli se prst/myš posunula o víc než malý kousek (tolerance proti chvění prstu)
             const pos = getPointerPos(e);
             if (isDragging && state.draggedAtom !== null) {
                 const origAtom = state.atoms[state.draggedAtom];
@@ -771,12 +933,10 @@
             if (isDragging) {
                 isDragging = false;
                 state.draggedAtom = null;
-                // hasMoved se vynuluje až po zpracování
                 setTimeout(() => { hasMoved = false; }, 20);
                 return;
             }
 
-            // Pokud uživatel během držení prstu posouval obrazovku nebo táhl atom, nevytváříme nový prvek
             if (!hasMoved) {
                 const pos = getPointerPos(e);
                 
@@ -789,7 +949,6 @@
                 const atomIdx = findAtomAt(pos.x, pos.y);
                 if (atomIdx !== null) return;
 
-                // Přidání nového atomu na plátno
                 if (pos.x >= 0 && pos.y >= 0 && pos.x <= canvas.width && pos.y <= canvas.height) {
                     addAtom(pos.x, pos.y, state.selectedAtom);
                 }
@@ -797,12 +956,10 @@
             hasMoved = false;
         }
 
-        // Eventy pro desktop (Myš)
         canvas.addEventListener('mousedown', onPointerDown);
         canvas.addEventListener('mousemove', onPointerMove);
         canvas.addEventListener('mouseup', onPointerUp);
 
-        // Eventy pro chytré telefony a tablety (Dotyk)
         canvas.addEventListener('touchstart', e => { e.preventDefault(); onPointerDown(e); }, { passive: false });
         canvas.addEventListener('touchmove', e => { e.preventDefault(); onPointerMove(e); }, { passive: false });
         canvas.addEventListener('touchend', e => { e.preventDefault(); onPointerUp(e); }, { passive: false });
@@ -876,7 +1033,6 @@
             return Math.sqrt((px - (x1 + param * dx)) ** 2 + (py - (y1 + param * dy)) ** 2);
         }
 
-        // RENDER VAZEB A ATOMŮ NA CANVAS
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -915,7 +1071,7 @@
             state.atoms = []; state.bonds = []; draw();
         });
 
-        // KONTROLA A VYHODNOCENÍ SLOŽENÉ MOLEKULY
+        // KONTROLA MOLEKULY
         document.getElementById('analyzeBtn').addEventListener('click', async () => {
             if (state.atoms.length === 0) {
                 alert('❌ Nejprve polož nějaké atomy!');
@@ -923,9 +1079,6 @@
             }
 
             const targetKey = state.currentChallenge;
-            const targetStructure = MOLECULES[targetKey].structure;
-
-            // Jednoduchá kontrola počtu atomů
             const counts = {};
             state.atoms.forEach(a => counts[a.symbol] = (counts[a.symbol] || 0) + 1);
 
@@ -938,7 +1091,6 @@
             let isCorrect = JSON.stringify(counts) === JSON.stringify(expectedCounts);
 
             if (isCorrect) {
-                // ÚSPĚCH -> Přičtení bodů na server
                 try {
                     const res = await fetch('/api/score', {
                         method: 'POST',
@@ -951,6 +1103,11 @@
                         state.streak += 1;
                         state.level = Math.floor(state.score / 60) + 1;
 
+                        // Aktualizace stavu žáka do LocalStorage proti ztrátě při refreshi
+                        localStorage.setItem('chemlab_score', state.score);
+                        localStorage.setItem('chemlab_streak', state.streak);
+                        localStorage.setItem('chemlab_level', state.level);
+
                         document.getElementById('score').textContent = state.score;
                         document.getElementById('streak').textContent = state.streak;
                         document.getElementById('level').textContent = state.level;
@@ -961,13 +1118,12 @@
                             <div style="font-size:0.9rem;">Molekula byla správně odeslána na server!</div>
                         `;
 
-                        setTimeout(() => {
-                            nextChallenge();
-                        }, 2000);
+                        setTimeout(() => { nextChallenge(); }, 2000);
                     }
                 } catch (e) { alert('Chyba při odesílání skóre.'); }
             } else {
                 state.streak = 0;
+                localStorage.setItem('chemlab_streak', 0);
                 document.getElementById('streak').textContent = "0";
                 document.getElementById('result').innerHTML = `
                     <div class="result-icon">❌</div>
