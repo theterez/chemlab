@@ -75,6 +75,16 @@ async function fbReq(path, opts = {}) {
   return data;
 }
 
+// Pokud běžící hře vypršel čas, přepne ji na 'finished' (i v DB).
+async function expireIfNeeded(code, roomData) {
+  if (!roomData || roomData.status !== 'running' || !roomData.startedAt) return roomData;
+  const round = roomData.roundSeconds || 90;
+  if (Date.now() - roomData.startedAt < round * 1000) return roomData;
+  const finishedAt = roomData.startedAt + round * 1000;
+  await fbReq(`rooms/${code}`, { method: 'PATCH', body: { status: 'finished', finishedAt } });
+  return { ...roomData, status: 'finished', finishedAt };
+}
+
 function uid(bytes = 12) { return crypto.randomBytes(bytes).toString('base64url'); }
 function roomCode()      { return crypto.randomBytes(3).toString('hex').toUpperCase(); }
 
@@ -173,7 +183,7 @@ module.exports = async (req, res) => {
 
     if (req.method === 'GET' && path === '/api/qr') {
       const code = (url.searchParams.get('room') || '').toUpperCase();
-      const roomData = await fbReq(`rooms/${code}`);
+      const roomData = /^[0-9A-F]{6}$/.test(code) ? await fbReq(`rooms/${code}`) : null;
       if (!roomData) {
         res.writeHead(404);
         res.end('Místnost neexistuje');
@@ -217,7 +227,8 @@ module.exports = async (req, res) => {
     // STAV MÍSTNOSTI
     if (req.method === 'GET' && path === '/api/room') {
       const code     = (url.searchParams.get('room') || '').toUpperCase();
-      const roomData = await fbReq(`rooms/${code}`);
+      if (!/^[0-9A-F]{6}$/.test(code)) return json(res, 404, { error: 'Místnost neexistuje' });
+      const roomData = await expireIfNeeded(code, await fbReq(`rooms/${code}`));
       if (!roomData) return json(res, 404, { error: 'Místnost neexistuje' });
       const isHost = url.searchParams.get('hostKey') === roomData.hostKey;
       return json(res, 200, formatSnapshot(roomData, isHost));
@@ -227,6 +238,7 @@ module.exports = async (req, res) => {
     if (req.method === 'POST' && path === '/api/join') {
       const body     = await readJson(req);
       const code     = String(body.room || '').toUpperCase();
+      if (!/^[0-9A-F]{6}$/.test(code)) return json(res, 404, { error: 'Místnost neexistuje' });
       const roomData = await fbReq(`rooms/${code}`);
       if (!roomData)                   return json(res, 404, { error: 'Místnost neexistuje' });
       if (roomData.status !== 'lobby') return json(res, 409, { error: 'Hra již byla spuštěna' });
@@ -260,11 +272,13 @@ module.exports = async (req, res) => {
     if (req.method === 'POST' && path === '/api/score') {
       const body       = await readJson(req);
       const code       = String(body.room || '').toUpperCase();
-      const roomData   = await fbReq(`rooms/${code}`);
+      if (!/^[0-9A-F]{6}$/.test(code)) return json(res, 404, { error: 'Místnost neexistuje' });
+      const roomData   = await expireIfNeeded(code, await fbReq(`rooms/${code}`));
       if (!roomData || roomData.status !== 'running')
         return json(res, 409, { error: 'Hra neběží' });
 
       const sessionId  = String(body.sessionId || '');
+      if (!/^[A-Za-z0-9_-]{8,}$/.test(sessionId)) return json(res, 403, { error: 'Hráč neexistuje' });
       const playerData = await fbReq(`rooms/${code}/players/${sessionId}`);
       if (!playerData) return json(res, 403, { error: 'Hráč neexistuje' });
 
@@ -278,7 +292,7 @@ module.exports = async (req, res) => {
     }
 
     // KONEC HRY
-    if (req.method === 'POST' && path === '/api/finish') {
+    if (req.method === 'POST' && (path === '/api/finish' || path === '/api/end')) {
       const body     = await readJson(req);
       const code     = String(body.room || '').toUpperCase();
       const roomData = await fbReq(`rooms/${code}`);

@@ -1,9 +1,13 @@
 {
+  "name": "chemlab-main",
+  "private": true,
   "scripts": {
-    "start": "node server.js"
+    "dev": "vercel dev"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
-    "firebase-admin": "^12.0.0",
     "qrcode": "^1.5.3"
   }
 }
