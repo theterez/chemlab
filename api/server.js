@@ -88,15 +88,39 @@ async function fbReq(path, opts = {}) {
   const token = await getAccessToken();
   const url   = new URL(`${env.databaseUrl}/${path}.json`);
 
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  if (opts.withEtag) headers['X-Firebase-ETag'] = 'true';
+  if (opts.ifMatch)  headers['if-match'] = opts.ifMatch;
+
   const r = await fetch(url, {
     method:  opts.method || 'GET',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body:    opts.body ? JSON.stringify(opts.body) : undefined,
+    headers,
+    body:    opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
   });
   const text = await r.text();
   const data = text ? JSON.parse(text) : null;
+  if (r.status === 412) throw new ConflictError();
   if (!r.ok) throw new Error(data?.error || `Firebase ${r.status}`);
-  return data;
+  return opts.withEtag ? { data, etag: r.headers.get('etag') } : data;
+}
+
+// Data se mezi čtením a zápisem změnila (jiný souběžný požadavek)
+class ConflictError extends Error {}
+
+// Atomická úprava uzlu: přečte s ETagem, zavolá update(data) a zapíše jen pokud se mezitím nic nezměnilo.
+// update vrací novou hodnotu uzlu, nebo vyhodí HttpError.
+async function fbTransaction(path, update, attempts = 4) {
+  for (let i = 0; i < attempts; i++) {
+    const { data, etag } = await fbReq(path, { withEtag: true });
+    const next = update(data);
+    try {
+      await fbReq(path, { method: 'PUT', body: next, ifMatch: etag });
+      return next;
+    } catch (e) {
+      if (!(e instanceof ConflictError)) throw e;
+    }
+  }
+  throw new HttpError(429, 'Server je vytížený – zkus to znovu');
 }
 
 // Pokud běžící hře vypršel čas, přepne ji na 'finished' (i v DB).
@@ -132,6 +156,9 @@ function uid(bytes = 12) { return crypto.randomBytes(bytes).toString('base64url'
 function roomCode()      { return crypto.randomBytes(3).toString('hex').toUpperCase(); }
 
 // Porovnání tajného klíče v konstantním čase
+// Vstup z požadavku: jen skutečný řetězec, jinak '' (pole/objekt by String() převedl na text)
+function str(v) { return typeof v === 'string' ? v : ''; }
+
 function safeEqual(a, b) {
   const x = Buffer.from(String(a || ''));
   const y = Buffer.from(String(b || ''));
@@ -139,7 +166,7 @@ function safeEqual(a, b) {
 }
 
 function isHost(roomData, hostKey) {
-  return !!roomData && HOSTKEY_RE.test(String(hostKey || '')) && safeEqual(hostKey, roomData.hostKey);
+  return !!roomData && HOSTKEY_RE.test(str(hostKey)) && safeEqual(hostKey, roomData.hostKey);
 }
 
 function cleanName(name) {
@@ -257,7 +284,7 @@ function formatSnapshot(roomData, mySessionId = '') {
 }
 
 function roomFrom(value) {
-  const code = String(value || '').toUpperCase();
+  const code = str(value).toUpperCase();
   if (!ROOM_RE.test(code)) throw new HttpError(404, 'Místnost neexistuje');
   return code;
 }
@@ -334,18 +361,18 @@ module.exports = async (req, res) => {
       if (!roomData)                   throw new HttpError(404, 'Místnost neexistuje');
       if (roomData.status !== 'lobby') throw new HttpError(409, 'Hra již byla spuštěna');
 
-      const name = cleanName(body.name);
+      const name = cleanName(str(body.name));
       if (!name) throw new HttpError(400, 'Zadej platné jméno');
 
-      const players = Object.values(roomData.players || {});
-      if (players.length >= MAX_PLAYERS_PER_ROOM) throw new HttpError(409, 'Místnost je plná');
-      if (players.some(p => String(p.name).toLowerCase() === name.toLowerCase()))
-        throw new HttpError(409, 'Toto jméno už v místnosti někdo má');
-
+      // Atomicky: souběžná připojení nesmí obejít limit hráčů ani unikátnost jména
       const sessionId = uid();
-      await fbReq(`rooms/${code}/players/${sessionId}`, {
-        method: 'PUT',
-        body: { sessionId, name, score: 0, completed: 0, joinedAt: Date.now(), ip: clientIp(req) },
+      await fbTransaction(`rooms/${code}/players`, (current) => {
+        const players = current || {};
+        const list = Object.values(players);
+        if (list.length >= MAX_PLAYERS_PER_ROOM) throw new HttpError(409, 'Místnost je plná');
+        if (list.some(p => String(p.name).toLowerCase() === name.toLowerCase()))
+          throw new HttpError(409, 'Toto jméno už v místnosti někdo má');
+        return { ...players, [sessionId]: { sessionId, name, score: 0, completed: 0, joinedAt: Date.now(), ip: clientIp(req) } };
       });
       const updated = await fbReq(`rooms/${code}`);
       return json(res, 200, { sessionId, snapshot: formatSnapshot(updated, sessionId) });
@@ -368,29 +395,29 @@ module.exports = async (req, res) => {
     if (req.method === 'POST' && path === '/api/score') {
       const body      = await readJson(req);
       const code      = roomFrom(body.room);
-      const sessionId = String(body.sessionId || '');
+      const sessionId = str(body.sessionId);
       if (!SESSION_RE.test(sessionId)) throw new HttpError(403, 'Hráč neexistuje');
 
       const roomData = await expireIfNeeded(code, await fbReq(`rooms/${code}`));
       if (!roomData || roomData.status !== 'running') throw new HttpError(409, 'Hra neběží');
 
-      const playerData = roomData.players?.[sessionId];
-      if (!playerData) throw new HttpError(403, 'Hráč neexistuje');
+      if (!roomData.players?.[sessionId]) throw new HttpError(403, 'Hráč neexistuje');
 
-      const now = Date.now();
-      if (playerData.lastScoreAt && now - playerData.lastScoreAt < MIN_SCORE_INTERVAL_MS)
-        throw new HttpError(429, 'Moc rychle – zkus to za chvilku');
-
-      if (!isValidMolecule(String(body.molecule || ''), body.atoms, body.bonds))
+      if (!isValidMolecule(str(body.molecule), body.atoms, body.bonds))
         throw new HttpError(422, 'Molekula není správně');
 
-      await fbReq(`rooms/${code}/players/${sessionId}`, {
-        method: 'PATCH',
-        body: {
+      // Atomicky: souběžné požadavky nesmí obejít limit rychlosti a přičíst body víckrát
+      await fbTransaction(`rooms/${code}/players/${sessionId}`, (playerData) => {
+        if (!playerData) throw new HttpError(403, 'Hráč neexistuje');
+        const now = Date.now();
+        if (playerData.lastScoreAt && now - playerData.lastScoreAt < MIN_SCORE_INTERVAL_MS)
+          throw new HttpError(429, 'Moc rychle – zkus to za chvilku');
+        return {
+          ...playerData,
           score: (playerData.score || 0) + POINTS_PER_MOLECULE,
           completed: (playerData.completed || 0) + 1,
           lastScoreAt: now,
-        },
+        };
       });
       const updated = await fbReq(`rooms/${code}`);
       return json(res, 200, formatSnapshot(updated, sessionId));
