@@ -15,6 +15,12 @@ const MIN_SCORE_INTERVAL_MS = 3000; // nejméně 3 s mezi dvěma odeslanými mol
 const MAX_PLAYERS_PER_ROOM = 60;
 const MAX_BODY_BYTES = 10 * 1024;
 
+// --- Rate limit (sdílený přes Firebase, platí napříč instancemi serverless funkce) ---
+const MISS_WINDOW_MS   = 10 * 60 * 1000; // okno pro neplatné kódy místností
+const MAX_ROOM_MISSES  = 40;             // max. neplatných kódů z jedné IP za okno
+const CREATE_WINDOW_MS = 60 * 60 * 1000; // okno pro zakládání místností
+const MAX_ROOM_CREATES = 20;             // max. nových místností z jedné IP za hodinu
+
 // --- Úklid starých místností ---
 const ROOM_MAX_AGE_MS   = 90 * 24 * 60 * 60 * 1000; // místnosti starší než ~3 měsíce se mažou
 const CLEANUP_EVERY_MS  = 24 * 60 * 60 * 1000;      // úklid nejvýš jednou denně
@@ -87,6 +93,7 @@ async function fbReq(path, opts = {}) {
   const env   = getEnv();
   const token = await getAccessToken();
   const url   = new URL(`${env.databaseUrl}/${path}.json`);
+  for (const [k, v] of Object.entries(opts.query || {})) url.searchParams.set(k, v);
 
   const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
   if (opts.withEtag) headers['X-Firebase-ETag'] = 'true';
@@ -149,6 +156,7 @@ async function cleanupOldRooms(now = Date.now()) {
   const count = Object.keys(toDelete).length;
   if (count) await fbReq('rooms', { method: 'PATCH', body: toDelete }); // jeden hromadný zápis
   console.log(`Úklid: smazáno ${count} starých místností`);
+  await cleanupRateLimits(now);
   return count;
 }
 
@@ -183,7 +191,7 @@ function clientIp(req) {
 }
 
 class HttpError extends Error {
-  constructor(status, message) { super(message); this.status = status; }
+  constructor(status, message, headers = {}) { super(message); this.status = status; this.headers = headers; }
 }
 
 function readJson(req) {
@@ -205,11 +213,12 @@ function readJson(req) {
   });
 }
 
-function json(res, status, data) {
+function json(res, status, data, extraHeaders = {}) {
   res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
     'cache-control': 'no-store',
     'x-content-type-options': 'nosniff',
+    ...extraHeaders,
   });
   res.end(JSON.stringify(data));
 }
@@ -283,10 +292,70 @@ function formatSnapshot(roomData, mySessionId = '') {
   };
 }
 
-function roomFrom(value) {
+// IP se do DB neukládá v čitelné podobě, jen jako hash (klíč čítače)
+function ipKey(req) {
+  return crypto.createHash('sha256').update('chemlab-rl:' + clientIp(req)).digest('base64url').slice(0, 22);
+}
+
+// Zablokované IP v paměti instance – opakované pokusy pak nezatěžují databázi
+const blockedUntil = new Map();
+
+function tooMany(message, untilMs) {
+  const retry = Math.max(1, Math.ceil((untilMs - Date.now()) / 1000));
+  return new HttpError(429, message, { 'retry-after': String(retry) });
+}
+
+// Načte místnost podle kódu s ochranou proti hádání kódů:
+// každý neexistující kód se počítá; po MAX_ROOM_MISSES za okno dostává IP jen 429
+// (i pro existující místnosti, aby se útočník nedozvěděl, že se trefil).
+async function loadRoom(req, value) {
+  const now = Date.now();
+  const ip = ipKey(req);
+  const mem = blockedUntil.get(ip);
+  if (mem && mem > now) throw tooMany('Příliš mnoho neplatných kódů místnosti. Zkus to za pár minut.', mem);
+
+  const win = Math.floor(now / MISS_WINDOW_MS);
+  const windowEnd = (win + 1) * MISS_WINDOW_MS;
+  const counterPath = `rateLimits/miss/${win}/${ip}`;
   const code = str(value).toUpperCase();
-  if (!ROOM_RE.test(code)) throw new HttpError(404, 'Místnost neexistuje');
-  return code;
+  const valid = ROOM_RE.test(code);
+
+  const [misses, roomData] = await Promise.all([
+    fbReq(counterPath),
+    valid ? fbReq(`rooms/${code}`) : Promise.resolve(null),
+  ]);
+
+  if ((misses || 0) >= MAX_ROOM_MISSES) {
+    blockedUntil.set(ip, windowEnd);
+    throw tooMany('Příliš mnoho neplatných kódů místnosti. Zkus to za pár minut.', windowEnd);
+  }
+  if (!roomData) {
+    await fbReq(counterPath, { method: 'PUT', body: { '.sv': { increment: 1 } } }); // atomické +1
+    throw new HttpError(404, 'Místnost neexistuje');
+  }
+  return { code, roomData };
+}
+
+// Limit zakládání místností z jedné IP
+async function checkCreateLimit(req) {
+  const now = Date.now();
+  const win = Math.floor(now / CREATE_WINDOW_MS);
+  const path = `rateLimits/create/${win}/${ipKey(req)}`;
+  const count = await fbReq(path);
+  if ((count || 0) >= MAX_ROOM_CREATES)
+    throw tooMany('Příliš mnoho nových místností. Zkus to později.', (win + 1) * CREATE_WINDOW_MS);
+  await fbReq(path, { method: 'PUT', body: { '.sv': { increment: 1 } } });
+}
+
+// Smaže staré čítače rate limitu (volá se z denního úklidu)
+async function cleanupRateLimits(now = Date.now()) {
+  for (const [kind, size] of [['miss', MISS_WINDOW_MS], ['create', CREATE_WINDOW_MS]]) {
+    const windows = (await fbReq(`rateLimits/${kind}`, { query: { shallow: 'true' } })) || {};
+    const current = Math.floor(now / size);
+    const old = Object.keys(windows).filter(w => Number(w) < current);
+    if (old.length) await fbReq(`rateLimits/${kind}`, { method: 'PATCH', body: Object.fromEntries(old.map(w => [w, null])) });
+  }
+  for (const [ip, until] of blockedUntil) if (until <= now) blockedUntil.delete(ip);
 }
 
 module.exports = async (req, res) => {
@@ -303,9 +372,7 @@ module.exports = async (req, res) => {
 
     // QR KÓD – vždy jen na odkaz do této aplikace (žádné cizí URL)
     if (req.method === 'GET' && path === '/api/qr') {
-      const code = roomFrom(url.searchParams.get('room'));
-      const roomData = await fbReq(`rooms/${code}`);
-      if (!roomData) throw new HttpError(404, 'Místnost neexistuje');
+      const { code } = await loadRoom(req, url.searchParams.get('room'));
 
       const svg = await QRCode.toString(`${origin}/?room=${code}`, {
         type: 'svg',
@@ -324,6 +391,8 @@ module.exports = async (req, res) => {
 
     // VYTVOŘENÍ MÍSTNOSTI
     if (req.method === 'POST' && path === '/api/rooms') {
+      await checkCreateLimit(req);
+
       // Úklid nesmí zablokovat založení místnosti
       try { await cleanupOldRooms(); } catch (e) { console.error('Úklid selhal:', e); }
 
@@ -346,9 +415,8 @@ module.exports = async (req, res) => {
 
     // STAV MÍSTNOSTI
     if (req.method === 'GET' && path === '/api/room') {
-      const code     = roomFrom(url.searchParams.get('room'));
-      const roomData = await expireIfNeeded(code, await fbReq(`rooms/${code}`));
-      if (!roomData) throw new HttpError(404, 'Místnost neexistuje');
+      const loaded   = await loadRoom(req, url.searchParams.get('room'));
+      const roomData = await expireIfNeeded(loaded.code, loaded.roomData);
       const sid = String(url.searchParams.get('sessionId') || '');
       return json(res, 200, formatSnapshot(roomData, SESSION_RE.test(sid) ? sid : ''));
     }
@@ -356,9 +424,7 @@ module.exports = async (req, res) => {
     // PŘIPOJENÍ ŽÁKA
     if (req.method === 'POST' && path === '/api/join') {
       const body     = await readJson(req);
-      const code     = roomFrom(body.room);
-      const roomData = await fbReq(`rooms/${code}`);
-      if (!roomData)                   throw new HttpError(404, 'Místnost neexistuje');
+      const { code, roomData } = await loadRoom(req, body.room);
       if (roomData.status !== 'lobby') throw new HttpError(409, 'Hra již byla spuštěna');
 
       const name = cleanName(str(body.name));
@@ -381,8 +447,7 @@ module.exports = async (req, res) => {
     // START HRY
     if (req.method === 'POST' && path === '/api/start') {
       const body     = await readJson(req);
-      const code     = roomFrom(body.room);
-      const roomData = await fbReq(`rooms/${code}`);
+      const { code, roomData } = await loadRoom(req, body.room);
       if (!isHost(roomData, body.hostKey)) throw new HttpError(403, 'Neoprávněný přístup');
       if (roomData.status !== 'lobby')     throw new HttpError(409, 'Hra už běží nebo skončila');
 
@@ -394,12 +459,13 @@ module.exports = async (req, res) => {
     // PŘIČTENÍ SKÓRE – server ověří molekulu i rychlost odesílání
     if (req.method === 'POST' && path === '/api/score') {
       const body      = await readJson(req);
-      const code      = roomFrom(body.room);
       const sessionId = str(body.sessionId);
       if (!SESSION_RE.test(sessionId)) throw new HttpError(403, 'Hráč neexistuje');
 
-      const roomData = await expireIfNeeded(code, await fbReq(`rooms/${code}`));
-      if (!roomData || roomData.status !== 'running') throw new HttpError(409, 'Hra neběží');
+      const loaded   = await loadRoom(req, body.room);
+      const code     = loaded.code;
+      const roomData = await expireIfNeeded(code, loaded.roomData);
+      if (roomData.status !== 'running') throw new HttpError(409, 'Hra neběží');
 
       if (!roomData.players?.[sessionId]) throw new HttpError(403, 'Hráč neexistuje');
 
@@ -426,8 +492,7 @@ module.exports = async (req, res) => {
     // KONEC HRY
     if (req.method === 'POST' && (path === '/api/finish' || path === '/api/end')) {
       const body     = await readJson(req);
-      const code     = roomFrom(body.room);
-      const roomData = await fbReq(`rooms/${code}`);
+      const { code, roomData } = await loadRoom(req, body.room);
       if (!isHost(roomData, body.hostKey)) throw new HttpError(403, 'Neoprávněný přístup');
 
       if (roomData.status !== 'finished') {
@@ -440,7 +505,7 @@ module.exports = async (req, res) => {
     json(res, 404, { error: 'Nenalezeno' });
 
   } catch (err) {
-    if (err instanceof HttpError) return json(res, err.status, { error: err.message });
+    if (err instanceof HttpError) return json(res, err.status, { error: err.message }, err.headers);
     console.error(err);
     // Detaily chyby jen do logu, ne klientovi
     json(res, 500, { error: 'Chyba na serveru' });
