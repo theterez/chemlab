@@ -185,9 +185,11 @@ function cleanName(name) {
     .slice(0, 18);
 }
 
+// Na Vercelu tyto hlavičky nastavuje (a přepisuje) samotný Vercel, klient je nepodvrhne
 function clientIp(req) {
-  const fwd = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  return (fwd || req.socket?.remoteAddress || '').slice(0, 64);
+  const h = (n) => String(req.headers[n] || '').split(',')[0].trim();
+  return (h('x-vercel-forwarded-for') || h('x-real-ip') || h('x-forwarded-for')
+    || req.socket?.remoteAddress || 'unknown').slice(0, 64);
 }
 
 class HttpError extends Error {
@@ -293,8 +295,10 @@ function formatSnapshot(roomData, mySessionId = '') {
 }
 
 // IP se do DB neukládá v čitelné podobě, jen jako hash (klíč čítače)
+let ipPepper = null;
 function ipKey(req) {
-  return crypto.createHash('sha256').update('chemlab-rl:' + clientIp(req)).digest('base64url').slice(0, 22);
+  ipPepper ??= crypto.createHash('sha256').update('chemlab-rl|' + (process.env.FIREBASE_PRIVATE_KEY || '')).digest();
+  return crypto.createHmac('sha256', ipPepper).update(clientIp(req)).digest('base64url').slice(0, 22);
 }
 
 // Zablokované IP v paměti instance – opakované pokusy pak nezatěžují databázi
@@ -305,34 +309,44 @@ function tooMany(message, untilMs) {
   return new HttpError(429, message, { 'retry-after': String(retry) });
 }
 
+const NO_PROOF = () => false;
+const hasSession = (sid) => (roomData) => SESSION_RE.test(str(sid)) && !!roomData.players?.[sid];
+const hasHostKey = (key) => (roomData) => isHost(roomData, key);
+
 // Načte místnost podle kódu s ochranou proti hádání kódů:
 // každý neexistující kód se počítá; po MAX_ROOM_MISSES za okno dostává IP jen 429
 // (i pro existující místnosti, aby se útočník nedozvěděl, že se trefil).
-async function loadRoom(req, value) {
+// proof(roomData) = požadavek prokázal, že do místnosti patří (platné sessionId / hostKey).
+// Takové požadavky blokace nezastaví – útočník za školní IP tak neodřízne spolužáky ani učitele.
+async function loadRoom(req, value, proof = NO_PROOF) {
   const now = Date.now();
   const ip = ipKey(req);
-  const mem = blockedUntil.get(ip);
-  if (mem && mem > now) throw tooMany('Příliš mnoho neplatných kódů místnosti. Zkus to za pár minut.', mem);
-
   const win = Math.floor(now / MISS_WINDOW_MS);
   const windowEnd = (win + 1) * MISS_WINDOW_MS;
+  const blocked = () => tooMany('Příliš mnoho neplatných kódů místnosti. Zkus to za pár minut.', windowEnd);
+  const mem = blockedUntil.get(ip);
+  const memBlocked = !!(mem && mem > now);
+
+  // Zablokovaná IP, která nemůže nic prokázat – ani nečteme DB
+  if (memBlocked && proof === NO_PROOF) throw blocked();
+
   const counterPath = `rateLimits/miss/${win}/${ip}`;
   const code = str(value).toUpperCase();
-  const valid = ROOM_RE.test(code);
+  const roomData = ROOM_RE.test(code) ? await fbReq(`rooms/${code}`) : null;
 
-  const [misses, roomData] = await Promise.all([
-    fbReq(counterPath),
-    valid ? fbReq(`rooms/${code}`) : Promise.resolve(null),
-  ]);
+  // Prokázaný člen místnosti (hráč při pollingu, učitel) – bez čítače, bez blokace
+  if (roomData && proof(roomData)) return { code, roomData };
+  if (memBlocked) throw blocked();
 
-  if ((misses || 0) >= MAX_ROOM_MISSES) {
-    blockedUntil.set(ip, windowEnd);
-    throw tooMany('Příliš mnoho neplatných kódů místnosti. Zkus to za pár minut.', windowEnd);
-  }
   if (!roomData) {
-    await fbReq(counterPath, { method: 'PUT', body: { '.sv': { increment: 1 } } }); // atomické +1
+    // Atomické +1 přes transakci; vrací novou hodnotu, takže ani paralelní dávka nepřeteče limit
+    const misses = await fbTransaction(counterPath, (n) => (typeof n === 'number' ? n : 0) + 1);
+    if (misses > MAX_ROOM_MISSES) { blockedUntil.set(ip, windowEnd); throw blocked(); }
     throw new HttpError(404, 'Místnost neexistuje');
   }
+
+  // Místnost existuje, ale bez důkazu (join, qr) – zkontroluj čítač
+  if (((await fbReq(counterPath)) || 0) >= MAX_ROOM_MISSES) { blockedUntil.set(ip, windowEnd); throw blocked(); }
   return { code, roomData };
 }
 
@@ -341,10 +355,9 @@ async function checkCreateLimit(req) {
   const now = Date.now();
   const win = Math.floor(now / CREATE_WINDOW_MS);
   const path = `rateLimits/create/${win}/${ipKey(req)}`;
-  const count = await fbReq(path);
-  if ((count || 0) >= MAX_ROOM_CREATES)
+  const count = await fbTransaction(path, (n) => (typeof n === 'number' ? n : 0) + 1);
+  if (count > MAX_ROOM_CREATES)
     throw tooMany('Příliš mnoho nových místností. Zkus to později.', (win + 1) * CREATE_WINDOW_MS);
-  await fbReq(path, { method: 'PUT', body: { '.sv': { increment: 1 } } });
 }
 
 // Smaže staré čítače rate limitu (volá se z denního úklidu)
@@ -415,9 +428,10 @@ module.exports = async (req, res) => {
 
     // STAV MÍSTNOSTI
     if (req.method === 'GET' && path === '/api/room') {
-      const loaded   = await loadRoom(req, url.searchParams.get('room'));
+      const sid = str(url.searchParams.get('sessionId'));
+      const hk  = str(url.searchParams.get('hostKey'));
+      const loaded   = await loadRoom(req, url.searchParams.get('room'), (r) => hasSession(sid)(r) || hasHostKey(hk)(r));
       const roomData = await expireIfNeeded(loaded.code, loaded.roomData);
-      const sid = String(url.searchParams.get('sessionId') || '');
       return json(res, 200, formatSnapshot(roomData, SESSION_RE.test(sid) ? sid : ''));
     }
 
@@ -447,7 +461,7 @@ module.exports = async (req, res) => {
     // START HRY
     if (req.method === 'POST' && path === '/api/start') {
       const body     = await readJson(req);
-      const { code, roomData } = await loadRoom(req, body.room);
+      const { code, roomData } = await loadRoom(req, body.room, hasHostKey(body.hostKey));
       if (!isHost(roomData, body.hostKey)) throw new HttpError(403, 'Neoprávněný přístup');
       if (roomData.status !== 'lobby')     throw new HttpError(409, 'Hra už běží nebo skončila');
 
@@ -462,7 +476,7 @@ module.exports = async (req, res) => {
       const sessionId = str(body.sessionId);
       if (!SESSION_RE.test(sessionId)) throw new HttpError(403, 'Hráč neexistuje');
 
-      const loaded   = await loadRoom(req, body.room);
+      const loaded   = await loadRoom(req, body.room, hasSession(sessionId));
       const code     = loaded.code;
       const roomData = await expireIfNeeded(code, loaded.roomData);
       if (roomData.status !== 'running') throw new HttpError(409, 'Hra neběží');
@@ -492,7 +506,7 @@ module.exports = async (req, res) => {
     // KONEC HRY
     if (req.method === 'POST' && (path === '/api/finish' || path === '/api/end')) {
       const body     = await readJson(req);
-      const { code, roomData } = await loadRoom(req, body.room);
+      const { code, roomData } = await loadRoom(req, body.room, hasHostKey(body.hostKey));
       if (!isHost(roomData, body.hostKey)) throw new HttpError(403, 'Neoprávněný přístup');
 
       if (roomData.status !== 'finished') {
